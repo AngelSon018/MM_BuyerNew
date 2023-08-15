@@ -1,13 +1,15 @@
 import 'dart:io';
 
-import 'package:flutter/services.dart';
+import 'package:dotted_border/dotted_border.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:just_the_tooltip/just_the_tooltip.dart';
 import 'package:sixam_mart/controller/auth_controller.dart';
 import 'package:sixam_mart/controller/cart_controller.dart';
 import 'package:sixam_mart/controller/coupon_controller.dart';
 import 'package:sixam_mart/controller/localization_controller.dart';
 import 'package:sixam_mart/controller/location_controller.dart';
 import 'package:sixam_mart/controller/order_controller.dart';
+import 'package:sixam_mart/controller/parcel_controller.dart';
 import 'package:sixam_mart/controller/store_controller.dart';
 import 'package:sixam_mart/controller/splash_controller.dart';
 import 'package:sixam_mart/controller/user_controller.dart';
@@ -27,20 +29,22 @@ import 'package:sixam_mart/util/images.dart';
 import 'package:sixam_mart/util/styles.dart';
 import 'package:sixam_mart/view/base/custom_app_bar.dart';
 import 'package:sixam_mart/view/base/custom_button.dart';
+import 'package:sixam_mart/view/base/custom_dropdown.dart';
 import 'package:sixam_mart/view/base/custom_snackbar.dart';
 import 'package:sixam_mart/view/base/custom_text_field.dart';
 import 'package:sixam_mart/view/base/footer_view.dart';
 import 'package:sixam_mart/view/base/image_picker_widget.dart';
 import 'package:sixam_mart/view/base/menu_drawer.dart';
-import 'package:sixam_mart/view/base/my_text_field.dart';
 import 'package:sixam_mart/view/base/not_logged_in_screen.dart';
 import 'package:sixam_mart/view/screens/address/widget/address_widget.dart';
 import 'package:sixam_mart/view/screens/cart/widget/delivery_option_button.dart';
 import 'package:sixam_mart/view/screens/checkout/widget/condition_check_box.dart';
-import 'package:sixam_mart/view/screens/checkout/widget/payment_button.dart';
-import 'package:sixam_mart/view/screens/checkout/widget/slot_widget.dart';
+import 'package:sixam_mart/view/screens/checkout/widget/coupon_bottom_sheet.dart';
+import 'package:sixam_mart/view/screens/checkout/widget/delivery_instruction_view.dart';
+import 'package:sixam_mart/view/screens/checkout/widget/payment_method_bottom_sheet.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:sixam_mart/view/screens/checkout/widget/time_slot_bottom_sheet.dart';
 import 'package:sixam_mart/view/screens/checkout/widget/tips_widget.dart';
 import 'package:sixam_mart/view/screens/home/home_screen.dart';
 import 'package:sixam_mart/view/screens/store/widget/camera_button_sheet.dart';
@@ -48,65 +52,81 @@ import 'package:universal_html/html.dart' as html;
 import 'package:flutter/material.dart';
 
 class CheckoutScreen extends StatefulWidget {
-  final List<CartModel> cartList;
+  final List<CartModel?>? cartList;
   final bool fromCart;
-  final int storeId;
-  CheckoutScreen({@required this.fromCart, @required this.cartList, @required this.storeId});
+  final int? storeId;
+  const CheckoutScreen({Key? key, required this.fromCart, required this.cartList, required this.storeId}) : super(key: key);
 
   @override
-  _CheckoutScreenState createState() => _CheckoutScreenState();
+  CheckoutScreenState createState() => CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends State<CheckoutScreen> {
+class CheckoutScreenState extends State<CheckoutScreen> {
   final TextEditingController _couponController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _streetNumberController = TextEditingController();
   final TextEditingController _houseController = TextEditingController();
   final TextEditingController _floorController = TextEditingController();
-  TextEditingController _tipController = TextEditingController();
+  final TextEditingController _tipController = TextEditingController();
   final FocusNode _streetNode = FocusNode();
   final FocusNode _houseNode = FocusNode();
   final FocusNode _floorNode = FocusNode();
 
-  double _taxPercent = 0;
-  bool _isCashOnDeliveryActive = false;
-  bool _isDigitalPaymentActive = false;
-  bool _isLoggedIn;
-  List<CartModel> _cartList;
-  bool _isWalletActive;
+  final ScrollController _scrollController = ScrollController();
+
+  double? _taxPercent = 0;
+  bool? _isCashOnDeliveryActive = false;
+  bool? _isDigitalPaymentActive = false;
+  List<CartModel?>? _cartList;
+  late bool _isWalletActive;
+
+  List<AddressModel> address = [];
+  bool firstTime = true;
+  final tooltipController1 = JustTheController();
+  final tooltipController2 = JustTheController();
+  final tooltipController3 = JustTheController();
 
   @override
   void initState() {
     super.initState();
-    _isLoggedIn = Get.find<AuthController>().isLoggedIn();
-    if(_isLoggedIn) {
 
-      _streetNumberController.text = Get.find<LocationController>().getUserAddress().streetNumber ?? '';
-      _houseController.text = Get.find<LocationController>().getUserAddress().house ?? '';
-      _floorController.text = Get.find<LocationController>().getUserAddress().floor ?? '';
+    initCall();
+  }
+
+  void initCall(){
+    if(Get.find<AuthController>().isLoggedIn()) {
+
+      _streetNumberController.text = Get.find<LocationController>().getUserAddress()!.streetNumber ?? '';
+      _houseController.text = Get.find<LocationController>().getUserAddress()!.house ?? '';
+      _floorController.text = Get.find<LocationController>().getUserAddress()!.floor ?? '';
 
       Get.find<LocationController>().getZone(
-          Get.find<LocationController>().getUserAddress().latitude,
-          Get.find<LocationController>().getUserAddress().longitude, false, updateInAddress: true
+          Get.find<LocationController>().getUserAddress()!.latitude,
+          Get.find<LocationController>().getUserAddress()!.longitude, false, updateInAddress: true
       );
       if(Get.find<UserController>().userInfoModel == null) {
         Get.find<UserController>().getUserInfo();
       }
+      Get.find<CouponController>().getCouponList();
       if(Get.find<LocationController>().addressList == null) {
         Get.find<LocationController>().getAddressList();
       }
       if(widget.storeId == null){
         _cartList = [];
-        widget.fromCart ? _cartList.addAll(Get.find<CartController>().cartList) : _cartList.addAll(widget.cartList);
-        Get.find<StoreController>().initCheckoutData(_cartList[0].item.storeId);
+        widget.fromCart ? _cartList!.addAll(Get.find<CartController>().cartList) : _cartList!.addAll(widget.cartList!);
+        Get.find<StoreController>().initCheckoutData2(_cartList![0]!.item!.storeId);
       }
       if(widget.storeId != null){
-        Get.find<StoreController>().initCheckoutData(widget.storeId);
+        Get.find<StoreController>().initCheckoutData2(widget.storeId);
         Get.find<StoreController>().pickPrescriptionImage(isRemove: true, isCamera: false);
         Get.find<CouponController>().removeCouponData(false);
       }
-      _isWalletActive = Get.find<SplashController>().configModel.customerWalletStatus == 1;
-      Get.find<OrderController>().updateTips(-1, notify: false);
+      _isWalletActive = Get.find<SplashController>().configModel!.customerWalletStatus == 1;
+      Get.find<OrderController>().updateTips(
+        Get.find<AuthController>().getDmTipIndex().isNotEmpty ? int.parse(Get.find<AuthController>().getDmTipIndex()) : 1, notify: false,
+      );
+      _tipController.text = Get.find<OrderController>().selectedTips != -1 ? AppConstants.tips[Get.find<OrderController>().selectedTips] : '';
+
     }
   }
 
@@ -122,28 +142,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Module _module = Get.find<SplashController>().configModel.moduleConfig.module;
+    bool isLoggedIn = Get.find<AuthController>().isLoggedIn();
+    Module? module = Get.find<SplashController>().configModel!.moduleConfig!.module;
 
     return Scaffold(
       appBar: CustomAppBar(title: 'checkout'.tr),
-      endDrawer: MenuDrawer(),endDrawerEnableOpenDragGesture: false,
-      body: _isLoggedIn ? GetBuilder<LocationController>(builder: (locationController) {
+      endDrawer: const MenuDrawer(),endDrawerEnableOpenDragGesture: false,
+      body: isLoggedIn ? GetBuilder<LocationController>(builder: (locationController) {
         return GetBuilder<StoreController>(builder: (storeController) {
-          List<DropdownMenuItem<int>> _addressList = [];
-          _addressList.add(DropdownMenuItem<int>(value: -1, child: SizedBox(
-            width: context.width > Dimensions.WEB_MAX_WIDTH ? Dimensions.WEB_MAX_WIDTH-50 : context.width-50,
+          List<DropdownItem<int>> addressList = [];
+          address = [];
+          
+          addressList.add(DropdownItem<int>(value: 0, child: SizedBox(
+            width: context.width > Dimensions.webMaxWidth ? Dimensions.webMaxWidth-50 : context.width-50,
             child: AddressWidget(
               address: Get.find<LocationController>().getUserAddress(),
               fromAddress: false, fromCheckout: true,
             ),
           )));
+          address.add(locationController.getUserAddress()!);
           if(locationController.addressList != null && storeController.store != null) {
-            for(int index=0; index<locationController.addressList.length; index++) {
-              if(locationController.addressList[index].zoneIds.contains(storeController.store.zoneId)) {
-                _addressList.add(DropdownMenuItem<int>(value: index, child: SizedBox(
-                  width: context.width > Dimensions.WEB_MAX_WIDTH ? Dimensions.WEB_MAX_WIDTH-50 : context.width-50,
+            for(int index=0; index<locationController.addressList!.length; index++) {
+              if(locationController.addressList![index].zoneIds!.contains(storeController.store!.zoneId)) {
+
+                address.add(locationController.addressList![index]);
+
+                addressList.add(DropdownItem<int>(value: index + 1, child: SizedBox(
+                  width: context.width > Dimensions.webMaxWidth ? Dimensions.webMaxWidth-50 : context.width-50,
                   child: AddressWidget(
-                    address: locationController.addressList[index],
+                    address: locationController.addressList![index],
                     fromAddress: false, fromCheckout: true,
                   ),
                 )));
@@ -151,677 +178,1062 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             }
           }
 
-          bool _todayClosed = false;
-          bool _tomorrowClosed = false;
-          Pivot _moduleData;
+          bool todayClosed = false;
+          bool tomorrowClosed = false;
+          Pivot? moduleData;
           if(storeController.store != null) {
-            for(ZoneData zData in Get.find<LocationController>().getUserAddress().zoneData) {
+            for(ZoneData zData in Get.find<LocationController>().getUserAddress()!.zoneData!) {
 
-              if(zData.id ==  storeController.store.zoneId){
-                _isCashOnDeliveryActive = zData.cashOnDelivery;
-                _isDigitalPaymentActive = zData.digitalPayment;
-                Get.find<OrderController>().setPaymentMethod(_isCashOnDeliveryActive ? 0 : _isDigitalPaymentActive ? 1 : 2, isUpdate: false);
+              if(zData.id ==  storeController.store!.zoneId){
+                _isCashOnDeliveryActive = zData.cashOnDelivery! && Get.find<SplashController>().configModel!.cashOnDelivery!;
+                _isDigitalPaymentActive = zData.digitalPayment! && Get.find<SplashController>().configModel!.digitalPayment!;
+                if(firstTime){
+                  Get.find<OrderController>().setPaymentMethod(_isCashOnDeliveryActive! ? 0 : _isDigitalPaymentActive! ? 1 : 2, isUpdate: false);
+                  firstTime = false;
+                }
               }
-              for(Modules m in zData.modules) {
-                if(m.id == Get.find<SplashController>().module.id) {
-                  _moduleData = m.pivot;
+              for(Modules m in zData.modules!) {
+                if(m.id == Get.find<SplashController>().module!.id) {
+                  moduleData = m.pivot;
                   break;
                 }
               }
             }
-            _todayClosed = storeController.isStoreClosed(true, storeController.store.active, storeController.store.schedules);
-            _tomorrowClosed = storeController.isStoreClosed(false, storeController.store.active, storeController.store.schedules);
-            _taxPercent = storeController.store.tax;
+            todayClosed = storeController.isStoreClosed(true, storeController.store!.active!, storeController.store!.schedules);
+            tomorrowClosed = storeController.isStoreClosed(false, storeController.store!.active!, storeController.store!.schedules);
+            _taxPercent = storeController.store!.tax;
           }
           return GetBuilder<CouponController>(builder: (couponController) {
             return GetBuilder<OrderController>(builder: (orderController) {
-              double _deliveryCharge = -1;
-              double _charge = -1;
-              double _maxCodOrderAmount;
-              if(storeController.store != null && orderController.distance != null && orderController.distance != -1 && storeController.store.selfDeliverySystem == 1) {
-                _deliveryCharge = orderController.distance * storeController.store.perKmShippingCharge;
-                _charge = orderController.distance * storeController.store.perKmShippingCharge;
-                double _maximumCharge = storeController.store.maximumShippingCharge;
+              double? deliveryCharge = -1;
+              double? charge = -1;
+              double? maxCodOrderAmount;
+              if(storeController.store != null && orderController.distance != null && orderController.distance != -1 && storeController.store!.selfDeliverySystem == 1) {
+                deliveryCharge = orderController.distance! * storeController.store!.perKmShippingCharge!;
+                charge = orderController.distance! * storeController.store!.perKmShippingCharge!;
+                double? maximumCharge = storeController.store!.maximumShippingCharge;
 
-                if(_deliveryCharge < storeController.store.minimumShippingCharge) {
-                  _deliveryCharge = storeController.store.minimumShippingCharge;
-                  _charge = storeController.store.minimumShippingCharge;
-                }else if(_maximumCharge != null && _deliveryCharge > _maximumCharge){
-                  _deliveryCharge = _maximumCharge;
-                  _charge = _maximumCharge;
+                if(deliveryCharge < storeController.store!.minimumShippingCharge!) {
+                  deliveryCharge = storeController.store!.minimumShippingCharge;
+                  charge = storeController.store!.minimumShippingCharge;
+                }else if(maximumCharge != null && deliveryCharge > maximumCharge){
+                  deliveryCharge = maximumCharge;
+                  charge = maximumCharge;
                 }
               }else if(storeController.store != null && orderController.distance != null && orderController.distance != -1) {
-                _deliveryCharge = orderController.distance * _moduleData.perKmShippingCharge;
-                _charge = orderController.distance * _moduleData.perKmShippingCharge;
 
-                if(_deliveryCharge < _moduleData.minimumShippingCharge) {
-                  _deliveryCharge = _moduleData.minimumShippingCharge;
-                  _charge = _moduleData.minimumShippingCharge;
-                }else if(_moduleData.maximumShippingCharge != null && _deliveryCharge > _moduleData.maximumShippingCharge){
-                  _deliveryCharge = _moduleData.maximumShippingCharge;
-                  _charge = _moduleData.maximumShippingCharge;
+                deliveryCharge = orderController.distance! * moduleData!.perKmShippingCharge!;
+                charge = orderController.distance! * moduleData.perKmShippingCharge!;
+
+                if(deliveryCharge < moduleData.minimumShippingCharge!) {
+                  deliveryCharge = moduleData.minimumShippingCharge;
+                  charge = moduleData.minimumShippingCharge;
+                }else if(moduleData.maximumShippingCharge != null && deliveryCharge > moduleData.maximumShippingCharge!){
+                  deliveryCharge = moduleData.maximumShippingCharge;
+                  charge = moduleData.maximumShippingCharge;
                 }
               }
 
-              if(storeController.store != null && storeController.store.selfDeliverySystem == 0 && orderController.extraCharge != null){
-                _deliveryCharge = _deliveryCharge + orderController.extraCharge;
-                _charge = _charge + orderController.extraCharge;
+              if(storeController.store != null && storeController.store!.selfDeliverySystem == 0 && orderController.extraCharge != null){
+                deliveryCharge = deliveryCharge! + orderController.extraCharge!;
+                charge = charge! + orderController.extraCharge!;
               }
 
-              if(_moduleData != null) {
-                _maxCodOrderAmount = _moduleData.maximumCodOrderAmount;
+              if(moduleData != null) {
+                maxCodOrderAmount = moduleData.maximumCodOrderAmount;
               }
 
-              double _price = 0;
-              double _discount = 0;
-              double _couponDiscount = couponController.discount;
-              double _tax = 0;
-              bool _taxIncluded = Get.find<SplashController>().configModel.taxIncluded == 1;
-              double _addOns = 0;
-              double _subTotal = 0;
-              double _orderAmount = 0;
+              double price = 0;
+              double? discount = 0;
+              double couponDiscount = couponController.discount!;
+              double tax = 0;
+              bool taxIncluded = Get.find<SplashController>().configModel!.taxIncluded == 1;
+              double addOns = 0;
+              double subTotal = 0;
+              double orderAmount = 0;
               if(storeController.store != null && _cartList != null) {
-                _cartList.forEach((cartModel) {
-                  List<AddOns> _addOnList = [];
-                  cartModel.addOnIds.forEach((addOnId) {
-                    for (AddOns addOns in cartModel.item.addOns) {
+                for (var cartModel in _cartList!) {
+                  List<AddOns> addOnList = [];
+                  for (var addOnId in cartModel!.addOnIds!) {
+                    for (AddOns addOns in cartModel.item!.addOns!) {
                       if (addOns.id == addOnId.id) {
-                        _addOnList.add(addOns);
+                        addOnList.add(addOns);
                         break;
                       }
                     }
-                  });
+                  }
 
-                  for (int index = 0; index < _addOnList.length; index++) {
-                    _addOns = _addOns + (_addOnList[index].price * cartModel.addOnIds[index].quantity);
+                  for (int index = 0; index < addOnList.length; index++) {
+                    addOns = addOns + (addOnList[index].price! * cartModel.addOnIds![index].quantity!);
                   }
-                  _price = _price + (cartModel.price * cartModel.quantity);
-                  double _dis = (storeController.store.discount != null
-                      && DateConverter.isAvailable(storeController.store.discount.startTime, storeController.store.discount.endTime))
-                      ? storeController.store.discount.discount : cartModel.item.discount;
-                  String _disType = (storeController.store.discount != null
-                      && DateConverter.isAvailable(storeController.store.discount.startTime, storeController.store.discount.endTime))
-                      ? 'percent' : cartModel.item.discountType;
-                  _discount = _discount + ((cartModel.price - PriceConverter.convertWithDiscount(cartModel.price, _dis, _disType)) * cartModel.quantity);
-                });
-                if (storeController.store != null && storeController.store.discount != null) {
-                  if (storeController.store.discount.maxDiscount != 0 && storeController.store.discount.maxDiscount < _discount) {
-                    _discount = storeController.store.discount.maxDiscount;
+                  price = price + (cartModel.price! * cartModel.quantity!);
+                  double? dis = (storeController.store!.discount != null
+                      && DateConverter.isAvailable(storeController.store!.discount!.startTime, storeController.store!.discount!.endTime))
+                      ? storeController.store!.discount!.discount : cartModel.item!.discount;
+                  String? disType = (storeController.store!.discount != null
+                      && DateConverter.isAvailable(storeController.store!.discount!.startTime, storeController.store!.discount!.endTime))
+                      ? 'percent' : cartModel.item!.discountType;
+                  discount = discount! + ((cartModel.price! - PriceConverter.convertWithDiscount(cartModel.price, dis, disType)!) * cartModel.quantity!);
+                }
+                if (storeController.store != null && storeController.store!.discount != null) {
+                  if (storeController.store!.discount!.maxDiscount != 0 && storeController.store!.discount!.maxDiscount! < discount!) {
+                    discount = storeController.store!.discount!.maxDiscount;
                   }
-                  if (storeController.store.discount.minPurchase != 0 && storeController.store.discount.minPurchase > (_price + _addOns)) {
-                    _discount = 0;
+                  if (storeController.store!.discount!.minPurchase != 0 && storeController.store!.discount!.minPurchase! > (price + addOns)) {
+                    discount = 0;
                   }
                 }
-                _subTotal = _price + _addOns;
-                _orderAmount = (_price - _discount) + _addOns - _couponDiscount;
+
+                price = PriceConverter.toFixed(price);
+                addOns = PriceConverter.toFixed(addOns);
+                discount = PriceConverter.toFixed(discount!);
+                couponDiscount = PriceConverter.toFixed(couponDiscount);
+
+                subTotal = price + addOns;
+                orderAmount = (price - discount) + addOns - couponDiscount;
               }
 
-              if (orderController.orderType == 'take_away' || (storeController.store != null && storeController.store.freeDelivery)
-                  || (Get.find<SplashController>().configModel.freeDeliveryOver != null && _orderAmount
-                      >= Get.find<SplashController>().configModel.freeDeliveryOver) || couponController.freeDelivery) {
-                _deliveryCharge = 0;
+              if (orderController.orderType == 'take_away' || (storeController.store != null && storeController.store!.freeDelivery!)
+                  || (Get.find<SplashController>().configModel!.freeDeliveryOver != null && orderAmount
+                      >= Get.find<SplashController>().configModel!.freeDeliveryOver!) || couponController.freeDelivery) {
+                deliveryCharge = 0;
               }
 
-              if(_taxIncluded){
-                _tax = _orderAmount * _taxPercent /(100 + _taxPercent);
+              if(taxIncluded){
+                tax = orderAmount * _taxPercent! /(100 + _taxPercent!);
               }else{
-                _tax = PriceConverter.calculation(_orderAmount, _taxPercent, 'percent', 1);
+                tax = PriceConverter.calculation(orderAmount, _taxPercent, 'percent', 1);
               }
-              double _total = _subTotal + _deliveryCharge - _discount - _couponDiscount + (_taxIncluded ? 0 : _tax) + orderController.tips;
+              tax = PriceConverter.toFixed(tax);
+              deliveryCharge = PriceConverter.toFixed(deliveryCharge!);
+              double total = subTotal + deliveryCharge - discount- couponDiscount + (taxIncluded ? 0 : tax) +  (orderController.orderType != 'take_away' ? orderController.tips : 0);
+              total = PriceConverter.toFixed(total);
 
               return (orderController.distance != null && locationController.addressList != null && storeController.store != null) ? Column(
                 children: [
 
-                  Expanded(child: Scrollbar(child: SingleChildScrollView(
-                    physics: BouncingScrollPhysics(),
-                    padding: EdgeInsets.all(ResponsiveHelper.isDesktop(context) ? 0.0 : Dimensions.PADDING_SIZE_SMALL),
+                  Expanded(child: Scrollbar(controller: _scrollController, child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const BouncingScrollPhysics(),
                     child: FooterView(child: SizedBox(
-                      width: Dimensions.WEB_MAX_WIDTH,
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      width: Dimensions.webMaxWidth,
+                      child: ResponsiveHelper.isDesktop(context) ? Padding(
+                        padding: const EdgeInsets.only(top: Dimensions.paddingSizeLarge),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(child: topSection(storeController, charge!, deliveryCharge, orderController, locationController, addressList, tomorrowClosed, todayClosed, module, price, discount, addOns)),
+                          const SizedBox(width: Dimensions.paddingSizeLarge),
 
-                        widget.storeId != null ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('your_prescription'.tr, style: robotoMedium),
-                          SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-
-                          SizedBox(
-                            height: 120,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              physics: BouncingScrollPhysics(),
-                              itemCount: storeController.pickedPrescriptions.length+1,
-                              itemBuilder: (context, index) {
-                                XFile _file = index == storeController.pickedPrescriptions.length ? null : storeController.pickedPrescriptions[index];
-                                if(index == storeController.pickedPrescriptions.length) {
-                                  return InkWell(
-                                    onTap: () => Get.bottomSheet(CameraButtonSheet()),
-                                    child: Container(
-                                      height: 120, width: 150, alignment: Alignment.center, decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                                      border: Border.all(color: Theme.of(context).primaryColor, width: 2),
-                                    ),
-                                      child: Container(
-                                        padding: EdgeInsets.all(Dimensions.PADDING_SIZE_DEFAULT),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(width: 2, color: Theme.of(context).primaryColor),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(Icons.camera_alt, color: Theme.of(context).primaryColor),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return Container(
-                                  margin: EdgeInsets.only(right: Dimensions.PADDING_SIZE_SMALL),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Theme.of(context).primaryColor, width: 2),
-                                    borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                                  ),
-                                  child: Stack(children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                                      child: GetPlatform.isWeb ? Image.network(
-                                        _file.path, width: 150, height: 120, fit: BoxFit.cover,
-                                      ) : Image.file(
-                                        File(_file.path), width: 150, height: 120, fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      right: 0, top: 0,
-                                      child: InkWell(
-                                        onTap: () => storeController.removePrescriptionImage(index),
-                                        child: Padding(
-                                          padding: EdgeInsets.all(Dimensions.PADDING_SIZE_SMALL),
-                                          child: Icon(Icons.delete_forever, color: Colors.red),
-                                        ),
-                                      ),
-                                    ),
-                                  ]),
-                                );
-                              },
-                            ),
-                          ),
-                        ]) : SizedBox(),
-                        SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                        // Order type
-                        Text('delivery_option'.tr, style: robotoMedium),
-                        widget.storeId != null ? DeliveryOptionButton(
-                          value: 'delivery', title: 'home_delivery'.tr, charge: _charge, isFree: storeController.store.freeDelivery,
-                        ) : Column(children: [
-                          storeController.store.delivery ? DeliveryOptionButton(
-                            value: 'delivery', title: 'home_delivery'.tr, charge: _charge, isFree: storeController.store.freeDelivery,
-                          ) : SizedBox(),
-                          storeController.store.takeAway ? DeliveryOptionButton(
-                            value: 'take_away', title: 'take_away'.tr, charge: _deliveryCharge, isFree: true,
-                          ) : SizedBox(),
+                          Expanded(child: bottomSection(orderController, total, module!, subTotal, discount, couponController, taxIncluded, tax, deliveryCharge, storeController, locationController, todayClosed, tomorrowClosed, orderAmount, maxCodOrderAmount!)),
                         ]),
-                        SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
+                      ) : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-                        orderController.orderType != 'take_away' ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Text('deliver_to'.tr, style: robotoMedium),
-                            TextButton.icon(
-                              onPressed: () async {
-                                var _address = await Get.toNamed(RouteHelper.getAddAddressRoute(true, false, storeController.store.zoneId));
-                                if(_address != null) {
-                                  if(storeController.store.selfDeliverySystem == 0) {
-                                    orderController.getDistanceInKM(
-                                      LatLng(double.parse(_address.latitude), double.parse(_address.longitude)),
-                                      LatLng(double.parse(storeController.store.latitude), double.parse(storeController.store.longitude)),
-                                    );
-                                  }
-                                  _streetNumberController.text = _address.streetNumber ?? '';
-                                  _houseController.text = _address.house ?? '';
-                                  _floorController.text = _address.floor ?? '';
-                                }
-                              },
-                              icon: Icon(Icons.add, size: 20),
-                              label: Text('add'.tr, style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall)),
-                            ),
-                          ]),
+                        // CheckoutTopSection(
+                        //     storeController: storeController, charge: charge!, deliveryCharge: deliveryCharge, orderController: orderController,
+                        //   locationController: locationController, addressList: addressList, tomorrowClosed: tomorrowClosed, todayClosed: todayClosed,
+                        //   module: module, price: price, discount: discount, addOns: addOns, storeId: widget.storeId, streetNumberController: _streetNumberController,
+                        //   houseController: _houseController, floorController: _floorController, tooltipController1: tooltipController1, address: _address,streetNode: _streetNode,
+                        //   houseNode: _houseNode, floorNode: _floorNode, cartList: _cartList, tooltipController2: tooltipController2, tooltipController3: tooltipController3,
+                        //   couponTextEditingController: _couponController, tipController: _tipController,
+                        // ),
+                        topSection(storeController, charge!, deliveryCharge, orderController, locationController, addressList, tomorrowClosed, todayClosed, module, price, discount, addOns),
 
-                          DropdownButton(
-                            value: orderController.addressIndex,
-                            items: _addressList,
-                            itemHeight: ResponsiveHelper.isMobile(context) ? 70 : 85, elevation: 0, iconSize: 30, underline: SizedBox(),
-                            onChanged: (int index) {
-                              if(storeController.store.selfDeliverySystem == 0) {
-                                orderController.getDistanceInKM(
-                                  LatLng(
-                                    double.parse(index == -1 ? locationController.getUserAddress().latitude : locationController.addressList[index].latitude),
-                                    double.parse(index == -1 ? locationController.getUserAddress().longitude : locationController.addressList[index].longitude),
-                                  ),
-                                  LatLng(double.parse(storeController.store.latitude), double.parse(storeController.store.longitude)),
-                                );
-                              }
-                              orderController.setAddressIndex(index);
-
-                              _streetNumberController.text = orderController.addressIndex == -1 ? locationController.getUserAddress().streetNumber ?? '' : locationController.addressList[orderController.addressIndex].streetNumber ?? '';
-                              _houseController.text = orderController.addressIndex == -1 ? locationController.getUserAddress().house ?? '' : locationController.addressList[orderController.addressIndex].house ?? '';
-                              _floorController.text = orderController.addressIndex == -1 ? locationController.getUserAddress().floor ?? '' : locationController.addressList[orderController.addressIndex].floor ?? '';
-                            },
-                          ),
-                          SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                          Text(
-                            'street_number'.tr,
-                            style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
-                          ),
-                          SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-
-                          MyTextField(
-                            hintText: 'street_number'.tr,
-                            inputType: TextInputType.streetAddress,
-                            focusNode: _streetNode,
-                            nextFocus: _houseNode,
-                            controller: _streetNumberController,
-                          ),
-                          SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                          Text(
-                            'house'.tr + ' / ' + 'floor'.tr + ' ' + 'number'.tr,
-                            style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
-                          ),
-                          SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                child: MyTextField(
-                                  hintText: 'house'.tr,
-                                  inputType: TextInputType.text,
-                                  focusNode: _houseNode,
-                                  nextFocus: _floorNode,
-                                  controller: _houseController,
-                                ),
-                              ),
-                              SizedBox(width: Dimensions.PADDING_SIZE_SMALL),
-
-                              Expanded(
-                                child: MyTextField(
-                                  hintText: 'floor'.tr,
-                                  inputType: TextInputType.text,
-                                  focusNode: _floorNode,
-                                  inputAction: TextInputAction.done,
-                                  controller: _floorController,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-                        ]) : SizedBox(),
-
-                        // Time Slot
-                        widget.storeId == null && storeController.store.scheduleOrder ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('preference_time'.tr, style: robotoMedium),
-                          SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-                          SizedBox(
-                            height: 50,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              shrinkWrap: true,
-                              physics: BouncingScrollPhysics(),
-                              itemCount: 2,
-                              itemBuilder: (context, index) {
-                                return SlotWidget(
-                                  title: index == 0 ? 'today'.tr : 'tomorrow'.tr,
-                                  isSelected: orderController.selectedDateSlot == index,
-                                  onTap: () => orderController.updateDateSlot(index, storeController.store.orderPlaceToScheduleInterval),
-                                );
-                              },
-                            ),
-                          ),
-                          SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-                          SizedBox(
-                            height: 50,
-                            child: ((orderController.selectedDateSlot == 0 && _todayClosed)
-                            || (orderController.selectedDateSlot == 1 && _tomorrowClosed))
-                            ? Center(child: Text(_module.showRestaurantText
-                            ? 'restaurant_is_closed'.tr : 'store_is_closed'.tr)) : orderController.timeSlots != null
-                            ? orderController.timeSlots.length > 0 ? ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              shrinkWrap: true,
-                              physics: BouncingScrollPhysics(),
-                              itemCount: orderController.timeSlots.length,
-                              itemBuilder: (context, index) {
-                                return SlotWidget(
-                                  title: (index == 0 && orderController.selectedDateSlot == 0
-                                      && storeController.isStoreOpenNow(storeController.store.active, storeController.store.schedules)
-                                      && (_module.orderPlaceToScheduleInterval ? storeController.store.orderPlaceToScheduleInterval == 0 : true))
-                                      ? 'now'.tr : '${DateConverter.dateToTimeOnly(orderController.timeSlots[index].startTime)} '
-                                      '- ${DateConverter.dateToTimeOnly(orderController.timeSlots[index].endTime)}',
-                                  isSelected: orderController.selectedTimeSlot == index,
-                                  onTap: () => orderController.updateTimeSlot(index),
-                                );
-                              },
-                            ) : Center(child: Text('no_slot_available'.tr)) : Center(child: CircularProgressIndicator()),
-                          ),
-                          SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-                        ]) : SizedBox(),
-
-                        // Coupon
-                        widget.storeId == null ? GetBuilder<CouponController>(
-                          builder: (couponController) {
-                            return Container(
-                              color: Theme.of(context).cardColor,
-                              padding: EdgeInsets.symmetric(horizontal: Dimensions.PADDING_SIZE_SMALL),
-                              child: Column(children: [
-
-                                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  Text('promo_code'.tr, style: robotoMedium),
-                                  InkWell(
-                                    onTap: () {
-                                      Get.toNamed(RouteHelper.getCouponRoute(fromCheckout: true)).then((value) => _couponController.text = value.toString());
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(10.0),
-                                      child: Row(children: [
-                                        Text('add_voucher'.tr, style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).primaryColor)),
-                                        SizedBox(width: Dimensions.PADDING_SIZE_EXTRA_SMALL),
-                                        Icon(Icons.add, size: 20, color: Theme.of(context).primaryColor),
-                                      ]),
-                                    ),
-                                  )
-                                ]),
-                                SizedBox(height: Dimensions.PADDING_SIZE_EXTRA_SMALL),
-
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(Dimensions.RADIUS_DEFAULT),
-                                    border: Border.all(color: Theme.of(context).primaryColor),
-                                  ),
-                                  child: Row(children: [
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: 50,
-                                        child: TextField(
-                                          controller: _couponController,
-                                          style: robotoRegular.copyWith(height: ResponsiveHelper.isMobile(context) ? null : 2),
-                                          decoration: InputDecoration(
-                                            hintText: 'enter_promo_code'.tr,
-                                            hintStyle: robotoRegular.copyWith(color: Theme.of(context).hintColor),
-                                            isDense: true,
-                                            filled: true,
-                                            enabled: couponController.discount == 0,
-                                            fillColor: Theme.of(context).cardColor,
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.horizontal(
-                                                left: Radius.circular(Get.find<LocalizationController>().isLtr ? 10 : 0),
-                                                right: Radius.circular(Get.find<LocalizationController>().isLtr ? 0 : 10),
-                                              ),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    InkWell(
-                                      onTap: () {
-                                        String _couponCode = _couponController.text.trim();
-                                        if(couponController.discount < 1 && !couponController.freeDelivery) {
-                                          if(_couponCode.isNotEmpty && !couponController.isLoading) {
-                                            couponController.applyCoupon(_couponCode, (_price-_discount)+_addOns, _deliveryCharge,
-                                                storeController.store.id).then((discount) {
-                                              if (discount > 0) {
-                                                showCustomSnackBar(
-                                                  '${'you_got_discount_of'.tr} ${PriceConverter.convertPrice(discount)}',
-                                                  isError: false,
-                                                );
-                                              }
-                                            });
-                                          } else if(_couponCode.isEmpty) {
-                                            showCustomSnackBar('enter_a_coupon_code'.tr);
-                                          }
-                                        } else {
-                                          couponController.removeCouponData(true);
-                                        }
-                                      },
-                                      child: Container(
-                                        height: 50, width: 100,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context).primaryColor,
-                                          // boxShadow: [BoxShadow(color: Colors.grey[Get.isDarkMode ? 800 : 200], spreadRadius: 1, blurRadius: 5)],
-                                          borderRadius: BorderRadius.horizontal(
-                                            left: Radius.circular(Get.find<LocalizationController>().isLtr ? 0 : 10),
-                                            right: Radius.circular(Get.find<LocalizationController>().isLtr ? 10 : 0),
-                                          ),
-                                        ),
-                                        child: (couponController.discount <= 0 && !couponController.freeDelivery) ? !couponController.isLoading ? Text(
-                                          'apply'.tr,
-                                          style: robotoMedium.copyWith(color: Theme.of(context).cardColor),
-                                        ) : CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white))
-                                            : Icon(Icons.clear, color: Colors.white),
-                                      ),
-                                    ),
-                                  ]),
-                                ),
-                                SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                              ]),
-                            );
-                          },
-                        ) : SizedBox(),
-                        SizedBox(height: widget.storeId == null ? Dimensions.PADDING_SIZE_LARGE : 0),
-
-                        ( widget.storeId == null && orderController.orderType != 'take_away' && Get.find<SplashController>().configModel.dmTipsStatus == 1) ?
-                        Container(
-                          color: Theme.of(context).cardColor,
-                          padding: EdgeInsets.symmetric(vertical: Dimensions.PADDING_SIZE_LARGE, horizontal: Dimensions.PADDING_SIZE_SMALL),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-                            Text('delivery_man_tips'.tr, style: robotoMedium),
-                            SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-
-                            Container(
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                                border: Border.all(color: Theme.of(context).primaryColor),
-                              ),
-                              child: TextField(
-                                controller: _tipController,
-                                onChanged: (String value) {
-                                  if(value.isNotEmpty){
-                                    orderController.addTips(double.parse(value));
-                                  }else{
-                                    orderController.addTips(0.0);
-                                  }
-                                },
-                                maxLength: 10,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-                                decoration: InputDecoration(
-                                  hintText: 'enter_amount'.tr,
-                                  counterText: '',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: Dimensions.PADDING_SIZE_DEFAULT),
-
-                            SizedBox(
-                              height: 55,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                shrinkWrap: true,
-                                physics: BouncingScrollPhysics(),
-                                itemCount: AppConstants.tips.length,
-                                itemBuilder: (context, index) {
-                                  return TipsWidget(
-                                    title: AppConstants.tips[index].toString(),
-                                    isSelected: orderController.selectedTips == index,
-                                    onTap: () {
-                                      orderController.updateTips(index);
-                                      orderController.addTips(AppConstants.tips[index].toDouble());
-                                      _tipController.text = orderController.tips.toString();
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                          ]),
-                        ) : SizedBox.shrink(),
-                        SizedBox(height: (orderController.orderType != 'take_away'
-                            && Get.find<SplashController>().configModel.dmTipsStatus == 1) ? Dimensions.PADDING_SIZE_EXTRA_SMALL : 0),
-
-
-                        Text('choose_payment_method'.tr, style: robotoMedium),
-                        SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-                        _isCashOnDeliveryActive ? PaymentButton(
-                          icon: Images.cash_on_delivery,
-                          title: 'cash_on_delivery'.tr,
-                          subtitle: 'pay_your_payment_after_getting_item'.tr,
-                          isSelected: orderController.paymentMethodIndex == 0,
-                          onTap: () => orderController.setPaymentMethod(0),
-                        ) : SizedBox(),
-                        widget.storeId == null && _isDigitalPaymentActive ? PaymentButton(
-                          icon: Images.digital_payment,
-                          title: 'digital_payment'.tr,
-                          subtitle: 'faster_and_safe_way'.tr,
-                          isSelected: orderController.paymentMethodIndex == 1,
-                          onTap: () => orderController.setPaymentMethod(1),
-                        ) : SizedBox(),
-                        widget.storeId == null && _isWalletActive ? PaymentButton(
-                          icon: Images.wallet,
-                          title: 'wallet_payment'.tr,
-                          subtitle: 'pay_from_your_existing_balance'.tr,
-                          isSelected: orderController.paymentMethodIndex == 2,
-                          onTap: () => orderController.setPaymentMethod(2),
-                        ) : SizedBox(),
-
-                        SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                        CustomTextField(
-                          controller: _noteController,
-                          hintText: 'additional_note'.tr,
-                          maxLines: 3,
-                          inputType: TextInputType.multiline,
-                          inputAction: TextInputAction.newline,
-                          capitalization: TextCapitalization.sentences,
-                        ),
-                        SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                        widget.storeId == null && Get.find<SplashController>().configModel.moduleConfig.module.orderAttachment ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              Text('prescription'.tr, style: robotoMedium),
-                              SizedBox(width: Dimensions.PADDING_SIZE_EXTRA_SMALL),
-                              Text(
-                                '(${'max_size_2_mb'.tr})',
-                                style: robotoRegular.copyWith(
-                                  fontSize: Dimensions.fontSizeExtraSmall,
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                            ]),
-                            SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-                            ImagePickerWidget(
-                              image: '', rawFile: orderController.rawAttachment,
-                              onTap: () => orderController.pickImage(),
-                            ),
-                          ],
-                        ) : SizedBox(),
-
-                        widget.storeId == null ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text(_module.addOn ? 'subtotal'.tr : 'item_price'.tr, style: robotoMedium),
-                          Text(PriceConverter.convertPrice(_subTotal), style: robotoMedium, textDirection: TextDirection.ltr),
-                        ]) : SizedBox(),
-                        SizedBox(height: widget.storeId == null ? Dimensions.PADDING_SIZE_SMALL : 0),
-
-                        widget.storeId == null ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text('discount'.tr, style: robotoRegular),
-                          Text('(-) ${PriceConverter.convertPrice(_discount)}', style: robotoRegular, textDirection: TextDirection.ltr),
-                        ]) : SizedBox(),
-                        SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-
-                        (couponController.discount > 0 || couponController.freeDelivery) ? Column(children: [
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Text('coupon_discount'.tr, style: robotoRegular),
-                            (couponController.coupon != null && couponController.coupon.couponType == 'free_delivery') ? Text(
-                              'free_delivery'.tr, style: robotoRegular.copyWith(color: Theme.of(context).primaryColor),
-                            ) : Text(
-                              '(-) ${PriceConverter.convertPrice(couponController.discount)}',
-                              style: robotoRegular, textDirection: TextDirection.ltr,
-                            ),
-                          ]),
-                          SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-                        ]) : SizedBox(),
-                        widget.storeId == null ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text('vat_tax'.tr + ' ${_taxIncluded ? 'tax_included'.tr : ''}', style: robotoRegular),
-                          Text('${_taxIncluded ? '' : '(+) '}' + PriceConverter.convertPrice(_tax), style: robotoRegular, textDirection: TextDirection.ltr),
-                        ]) : SizedBox(),
-                        SizedBox(height: widget.storeId == null ? Dimensions.PADDING_SIZE_SMALL : 0),
-
-                        (widget.storeId == null && Get.find<SplashController>().configModel.dmTipsStatus == 1) ? Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('delivery_man_tips'.tr, style: robotoRegular),
-                            Text('(+) ${PriceConverter.convertPrice(orderController.tips)}', style: robotoRegular, textDirection: TextDirection.ltr),
-                          ],
-                        ) : SizedBox.shrink(),
-                        SizedBox(height: Get.find<SplashController>().configModel.dmTipsStatus == 1 ? Dimensions.PADDING_SIZE_SMALL : 0.0),
-
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text('delivery_fee'.tr, style: robotoRegular),
-                          _deliveryCharge == -1 ? Text(
-                            'calculating'.tr, style: robotoRegular.copyWith(color: Colors.red),
-                          ) : (_deliveryCharge == 0 || (couponController.coupon != null && couponController.coupon.couponType == 'free_delivery')) ? Text(
-                            'free'.tr, style: robotoRegular.copyWith(color: Theme.of(context).primaryColor),
-                          ) : Text(
-                            '(+) ${PriceConverter.convertPrice(_deliveryCharge)}', style: robotoRegular, textDirection: TextDirection.ltr,
-                          ),
-                        ]),
-
-                        Padding(
-                          padding: EdgeInsets.symmetric(vertical: Dimensions.PADDING_SIZE_SMALL),
-                          child: Divider(thickness: 1, color: Theme.of(context).hintColor.withOpacity(0.5)),
-                        ),
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text(
-                            'total_amount'.tr,
-                            style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
-                          ),
-                          Text(
-                            PriceConverter.convertPrice(_total), textDirection: TextDirection.ltr,
-                            style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
-                          ),
-                        ]),
-
-                        SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                        CheckoutCondition(orderController: orderController),
-
-                        ResponsiveHelper.isDesktop(context) ? Padding(
-                          padding: const EdgeInsets.only(top: Dimensions.PADDING_SIZE_LARGE),
-                          child: _orderPlaceButton(
-                            orderController, storeController, locationController, _todayClosed, _tomorrowClosed, _orderAmount, _deliveryCharge, _tax, _discount, _total, _maxCodOrderAmount,
-                          ),
-                        ) : SizedBox(),
+                        bottomSection(orderController, total, module!, subTotal, discount, couponController, taxIncluded, tax, deliveryCharge, storeController, locationController, todayClosed, tomorrowClosed, orderAmount, maxCodOrderAmount),
 
                       ]),
                     )),
                   ))),
 
-                  ResponsiveHelper.isDesktop(context) ? SizedBox() : _orderPlaceButton(
-                    orderController, storeController, locationController, _todayClosed, _tomorrowClosed, _orderAmount, _deliveryCharge, _tax, _discount, _total, _maxCodOrderAmount
+                  ResponsiveHelper.isDesktop(context) ? const SizedBox() : Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.1), blurRadius: 10)],
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeLarge, vertical: Dimensions.paddingSizeExtraSmall),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            Text(
+                              'total_amount'.tr,
+                              style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
+                            ),
+                            Text(
+                              PriceConverter.convertPrice(total), textDirection: TextDirection.ltr,
+                              style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
+                            ),
+                          ]),
+                        ),
+
+                        _orderPlaceButton(
+                          orderController, storeController, locationController, todayClosed, tomorrowClosed, orderAmount, deliveryCharge, tax, discount, total, maxCodOrderAmount
+                        ),
+                      ],
+                    ),
                   ),
 
                 ],
-              ) : Center(child: CircularProgressIndicator());
+              ) : const Center(child: CircularProgressIndicator());
             });
           });
         });
-      }) : NotLoggedInScreen(),
+      }) :  NotLoggedInScreen(callBack: (value){
+        initCall();
+        setState(() {});
+      }),
     );
   }
 
-  void _callback(bool isSuccess, String message, String orderID, int zoneID, double amount, double maximumCodOrderAmount) async {
+  Widget topSection(StoreController storeController, double charge, double deliveryCharge, OrderController orderController,
+      LocationController locationController, List<DropdownItem<int>> addressList, bool tomorrowClosed, bool todayClosed, Module? module,
+      double price, double discount, double addOns) {
+    bool takeAway = orderController.orderType == 'take_away';
+
+    return Container(
+      decoration: ResponsiveHelper.isDesktop(context) ? BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
+        boxShadow: [BoxShadow(color: Colors.grey[Get.isDarkMode ? 700 : 300]!, blurRadius: 5, spreadRadius: 1)],
+      ) : null,
+      child: Column(children: [
+
+        widget.storeId != null ? Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeLarge, vertical: Dimensions.paddingSizeSmall),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            Row(children: [
+              Text('your_prescription'.tr, style: robotoMedium),
+              const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+
+              JustTheTooltip(
+                backgroundColor: Colors.black87,
+                controller: tooltipController1,
+                preferredDirection: AxisDirection.right,
+                tailLength: 14,
+                tailBaseWidth: 20,
+                content: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('prescription_tool_tip'.tr, style: robotoRegular.copyWith(color: Colors.white)),
+                ),
+                child: InkWell(
+                  onTap: () => tooltipController1.showTooltip(),
+                  child: const Icon(Icons.info_outline),
+                ),
+              ),
+            ]),
+            const SizedBox(height: Dimensions.paddingSizeSmall),
+
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: storeController.pickedPrescriptions.length+1,
+                itemBuilder: (context, index) {
+                  XFile? file = index == storeController.pickedPrescriptions.length ? null : storeController.pickedPrescriptions[index];
+                  if(index < 5 && index == storeController.pickedPrescriptions.length) {
+                    return InkWell(
+                      onTap: () {
+                        if(ResponsiveHelper.isDesktop(context)){
+                          storeController.pickPrescriptionImage(isRemove: false, isCamera: false);
+                        }else{
+                          Get.bottomSheet(const CameraButtonSheet());
+                        }
+                      },
+                      child: DottedBorder(
+                        color: Theme.of(context).primaryColor,
+                        strokeWidth: 1,
+                        strokeCap: StrokeCap.butt,
+                        dashPattern: const [5, 5],
+                        padding: const EdgeInsets.all(0),
+                        borderType: BorderType.RRect,
+                        radius: const Radius.circular(Dimensions.radiusDefault),
+                        child: Container(
+                          height: 98, width: 98, alignment: Alignment.center, decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
+                        ),
+                          child:  Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(Icons.cloud_upload, color: Theme.of(context).disabledColor, size: 32),
+                            Text('upload_your_prescription'.tr, style: robotoRegular.copyWith(color: Theme.of(context).disabledColor, fontSize: Dimensions.fontSizeSmall), textAlign: TextAlign.center,),
+                          ]),
+                        ),
+                      ),
+                    );
+                  }
+                  return file != null ? Container(
+                    margin: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
+                    ),
+                    child: DottedBorder(
+                      color: Theme.of(context).primaryColor,
+                      strokeWidth: 1,
+                      strokeCap: StrokeCap.butt,
+                      dashPattern: const [5, 5],
+                      padding: const EdgeInsets.all(0),
+                      borderType: BorderType.RRect,
+                      radius: const Radius.circular(Dimensions.radiusDefault),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5.0),
+                        child: Stack(children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                            child: GetPlatform.isWeb ? Image.network(
+                              file.path, width: 98, height: 98, fit: BoxFit.cover,
+                            ) : Image.file(
+                              File(file.path), width: 98, height: 98, fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            right: 0, top: 0,
+                            child: InkWell(
+                              onTap: () => storeController.removePrescriptionImage(index),
+                              child: const Padding(
+                                padding: EdgeInsets.all(Dimensions.paddingSizeSmall),
+                                child: Icon(Icons.delete_forever, color: Colors.red),
+                              ),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ),
+                  ) : const SizedBox();
+                },
+              ),
+            ),
+          ]),
+        ) : const SizedBox(),
+        const SizedBox(height: Dimensions.paddingSizeSmall),
+
+        // delivery option
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeLarge, vertical: Dimensions.paddingSizeSmall),
+          width: double.infinity,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('delivery_option'.tr, style: robotoMedium),
+              const SizedBox(height: Dimensions.paddingSizeSmall),
+
+              widget.storeId != null ? DeliveryOptionButton(
+                value: 'delivery', title: 'home_delivery'.tr, charge: charge,
+                isFree: storeController.store!.freeDelivery,
+              ) : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+                storeController.store!.delivery! ? DeliveryOptionButton(
+                  value: 'delivery', title: 'home_delivery'.tr, charge: charge,
+                  isFree: storeController.store!.freeDelivery,
+                ) : const SizedBox(),
+                const SizedBox(width: Dimensions.paddingSizeDefault),
+
+                storeController.store!.takeAway! ? DeliveryOptionButton(
+                  value: 'take_away', title: 'take_away'.tr, charge: deliveryCharge, isFree: true,
+                ) : const SizedBox(),
+              ]),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Dimensions.paddingSizeDefault),
+
+        !takeAway ? Center(child: Text(
+          '${'delivery_charge'.tr}: ${storeController.store!.freeDelivery! ? 'free'.tr
+              : orderController.distance != -1 ? PriceConverter.convertPrice(charge) : 'calculating'.tr}',
+          textDirection: TextDirection.ltr,
+        )) : const SizedBox(),
+        SizedBox(height: !takeAway ? Dimensions.paddingSizeLarge : 0),
+
+        !takeAway ? Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeLarge),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('deliver_to'.tr, style: robotoMedium),
+              TextButton.icon(
+                onPressed: () async {
+                  var address = await Get.toNamed(RouteHelper.getAddAddressRoute(true, false, storeController.store!.zoneId));
+                  if(address != null) {
+                    orderController.getDistanceInKM(
+                      LatLng(double.parse(address.latitude), double.parse(address.longitude)),
+                      LatLng(double.parse(storeController.store!.latitude!), double.parse(storeController.store!.longitude!)),
+                    );
+                    _streetNumberController.text = address.streetNumber ?? '';
+                    _houseController.text = address.house ?? '';
+                    _floorController.text = address.floor ?? '';
+                  }
+                },
+                icon: const Icon(Icons.add, size: 20),
+                label: Text('add_new'.tr, style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall)),
+              ),
+            ]),
+
+
+            Container(
+              constraints: BoxConstraints(minHeight: ResponsiveHelper.isDesktop(context) ? 90 : 75),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+              ),
+              child: CustomDropdown<int>(
+
+                onChange: (int? value, int index) {
+                  orderController.getDistanceInKM(
+                    LatLng(
+                      double.parse(address[index].latitude!),
+                      double.parse(address[index].longitude!),
+                    ),
+                    LatLng(double.parse(storeController.store!.latitude!), double.parse(storeController.store!.longitude!)),
+                  );
+                  orderController.setAddressIndex(index);
+
+                  _streetNumberController.text = address[orderController.addressIndex!].streetNumber ?? '';
+                  _houseController.text = address[orderController.addressIndex!].house ?? '';
+                  _floorController.text = address[orderController.addressIndex!].floor ?? '';
+
+                },
+                dropdownButtonStyle: DropdownButtonStyle(
+                  height: 45,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: Dimensions.paddingSizeExtraSmall,
+                    horizontal: Dimensions.paddingSizeExtraSmall,
+                  ),
+                  primaryColor: Theme.of(context).textTheme.bodyLarge!.color,
+                ),
+                dropdownStyle: DropdownStyle(
+                  elevation: 10,
+                  borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                  padding: const EdgeInsets.all(Dimensions.paddingSizeExtraSmall),
+                ),
+                items: addressList,
+                child: AddressWidget(
+                  address: address[orderController.addressIndex!],
+                  fromAddress: false, fromCheckout: true,
+                ),
+              ),
+            ),
+            const SizedBox(height: Dimensions.paddingSizeLarge),
+
+            CustomTextField(
+              titleText: 'street_number'.tr,
+              inputType: TextInputType.streetAddress,
+              focusNode: _streetNode,
+              nextFocus: _houseNode,
+              controller: _streetNumberController,
+            ),
+            const SizedBox(height: Dimensions.paddingSizeLarge),
+
+            Row(
+              children: [
+                Expanded(
+                  child: CustomTextField(
+                    titleText: 'house'.tr,
+                    inputType: TextInputType.text,
+                    focusNode: _houseNode,
+                    nextFocus: _floorNode,
+                    controller: _houseController,
+                  ),
+                ),
+                const SizedBox(width: Dimensions.paddingSizeSmall),
+
+                Expanded(
+                  child: CustomTextField(
+                    titleText: 'floor'.tr,
+                    inputType: TextInputType.text,
+                    focusNode: _floorNode,
+                    inputAction: TextInputAction.done,
+                    controller: _floorController,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Dimensions.paddingSizeLarge),
+          ]),
+        ) : const SizedBox(),
+        SizedBox(height: !takeAway ? Dimensions.paddingSizeSmall : 0),
+
+        //delivery instruction
+        !takeAway ? const DeliveryInstructionView() : const SizedBox(),
+
+        SizedBox(height: !takeAway ? Dimensions.paddingSizeSmall : 0),
+
+        // Time Slot
+        widget.storeId == null && storeController.store!.scheduleOrder! && _cartList![0]!.item!.availableDateStarts == null ? Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeLarge, vertical: Dimensions.paddingSizeSmall),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text('preference_time'.tr, style: robotoMedium),
+              const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+
+              JustTheTooltip(
+                backgroundColor: Colors.black87,
+                controller: tooltipController2,
+                preferredDirection: AxisDirection.right,
+                tailLength: 14,
+                tailBaseWidth: 20,
+                content: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('schedule_time_tool_tip'.tr,style: robotoRegular.copyWith(color: Colors.white)),
+                ),
+                child: InkWell(
+                  onTap: () => tooltipController2.showTooltip(),
+                  child: const Icon(Icons.info_outline),
+                ),
+              ),
+            ]),
+            const SizedBox(height: Dimensions.paddingSizeSmall),
+
+            InkWell(
+              onTap: (){
+                if(ResponsiveHelper.isDesktop(context)){
+                  showDialog(context: context, builder: (con) => Dialog(
+                    child: TimeSlotBottomSheet(
+                      tomorrowClosed: tomorrowClosed,
+                      todayClosed: todayClosed, module: module,
+                    ),
+                  ));
+                }else{
+                  showModalBottomSheet(
+                    context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+                    builder: (con) => TimeSlotBottomSheet(
+                      tomorrowClosed: tomorrowClosed,
+                      todayClosed: todayClosed, module: module,
+                    ),
+                  );
+                }
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                    border: Border.all(color: Theme.of(context).primaryColor, width: 0.3),
+                    borderRadius: BorderRadius.circular(Dimensions.radiusDefault)
+                ),
+                height: 50,
+                child: Row(children: [
+                  const SizedBox(width: Dimensions.paddingSizeLarge),
+                  Expanded(child: ((orderController.selectedDateSlot == 0 && todayClosed) || (orderController.selectedDateSlot == 1 && tomorrowClosed))
+                      ? Center(child: Text(module!.showRestaurantText! ? 'restaurant_is_closed'.tr : 'store_is_closed'.tr))
+                      : Text(orderController.preferableTime.isNotEmpty ? orderController.preferableTime : 'instance'.tr)),
+
+                  const Icon(Icons.arrow_drop_down, size: 28),
+                  Icon(Icons.access_time_filled_outlined, color: Theme.of(context).primaryColor),
+                  const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+                ]),
+              ),
+            ),
+            const SizedBox(height: Dimensions.paddingSizeLarge),
+          ]),
+        ) : const SizedBox(),
+        SizedBox(height: widget.storeId == null && storeController.store!.scheduleOrder! && _cartList![0]!.item!.availableDateStarts == null ? Dimensions.paddingSizeSmall : 0),
+
+        // Coupon
+        widget.storeId == null ? GetBuilder<CouponController>(
+          builder: (couponController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeLarge),
+              child: Column(children: [
+
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text('promo_code'.tr, style: robotoMedium),
+                  InkWell(
+                    onTap: () {
+                      if(ResponsiveHelper.isDesktop(context)){
+                        Get.dialog(const Dialog(child: CouponBottomSheet())).then((value) {
+                          if(value != null) {
+                            _couponController.text = value.toString();
+                          }
+                        });
+                      }else{
+                        showModalBottomSheet(
+                          context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+                          builder: (con) => const CouponBottomSheet(),
+                        ).then((value) {
+                          if(value != null) {
+                            _couponController.text = value.toString();
+                          }
+                          if(_couponController.text.isNotEmpty){
+                            if(couponController.discount! < 1 && !couponController.freeDelivery) {
+                              if(_couponController.text.isNotEmpty && !couponController.isLoading) {
+                                couponController.applyCoupon(_couponController.text, (price-discount)+addOns, deliveryCharge,
+                                    storeController.store!.id).then((discount) {
+                                  if (discount! > 0) {
+                                    _couponController.text = 'coupon_applied'.tr;
+                                    showCustomSnackBar(
+                                      '${'you_got_discount_of'.tr} ${PriceConverter.convertPrice(discount)}',
+                                      isError: false,
+                                    );
+                                  }
+                                });
+                              } else if(_couponController.text.isEmpty) {
+                                showCustomSnackBar('enter_a_coupon_code'.tr);
+                              }
+                            } else {
+                              couponController.removeCouponData(true);
+                              _couponController.text = '';
+                            }
+                          }
+
+                        });
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(10.0),
+                      child: Row(children: [
+                        Text('add_voucher'.tr, style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).primaryColor)),
+                        const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+                        Icon(Icons.add, size: 20, color: Theme.of(context).primaryColor),
+                      ]),
+                    ),
+                  )
+                ]),
+                const SizedBox(height: Dimensions.paddingSizeExtraSmall),
+
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                    border: Border.all(color: Theme.of(context).primaryColor, width: 0.2),
+                  ),
+                  child: Row(children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 45,
+                        child: TextField(
+                          controller: _couponController,
+                          style: robotoRegular.copyWith(height: ResponsiveHelper.isMobile(context) ? null : 2),
+                          decoration: InputDecoration(
+                              hintText: 'enter_promo_code'.tr,
+                              hintStyle: robotoRegular.copyWith(color: Theme.of(context).hintColor),
+                              isDense: true,
+                              filled: true,
+                              enabled: couponController.discount == 0,
+                              fillColor: Theme.of(context).cardColor,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.horizontal(
+                                  left: Radius.circular(Get.find<LocalizationController>().isLtr ? 10 : 0),
+                                  right: Radius.circular(Get.find<LocalizationController>().isLtr ? 0 : 10),
+                                ),
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.all( 15),
+                                child: Image.asset(Images.couponIcon, height: 10, width: 20, color: Theme.of(context).primaryColor),
+                              ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        String couponCode = _couponController.text.trim();
+                        if(couponController.discount! < 1 && !couponController.freeDelivery) {
+                          if(couponCode.isNotEmpty && !couponController.isLoading) {
+                            couponController.applyCoupon(couponCode, (price-discount)+addOns, deliveryCharge,
+                                storeController.store!.id).then((discount) {
+                              if (discount! > 0) {
+                                showCustomSnackBar(
+                                  '${'you_got_discount_of'.tr} ${PriceConverter.convertPrice(discount)}',
+                                  isError: false,
+                                );
+                              }
+                            });
+                          } else if(couponCode.isEmpty) {
+                            showCustomSnackBar('enter_a_coupon_code'.tr);
+                          }
+                        } else {
+                          couponController.removeCouponData(true);
+                          _couponController.text = '';
+                        }
+                      },
+                      child: Container(
+                        height: 45, width: (couponController.discount! <= 0 && !couponController.freeDelivery) ? 100 : 50,
+                        alignment: Alignment.center,
+                        margin: const EdgeInsets.all(Dimensions.paddingSizeExtraSmall),
+                        decoration: BoxDecoration(
+                          color: (couponController.discount! <= 0 && !couponController.freeDelivery) ? Theme.of(context).primaryColor : Colors.transparent,
+                          borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                        ),
+                        child: (couponController.discount! <= 0 && !couponController.freeDelivery) ? !couponController.isLoading ? Text(
+                          'apply'.tr,
+                          style: robotoMedium.copyWith(color: Theme.of(context).cardColor),
+                        ) : const SizedBox(
+                          height: 30, width: 30,
+                          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                        )
+                            : Icon(Icons.clear, color: Theme.of(context).colorScheme.error),
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: Dimensions.paddingSizeLarge),
+
+              ]),
+            );
+          },
+        ) : const SizedBox(),
+        // SizedBox(height: widget.storeId == null ? Dimensions.paddingSizeSmall : 0),
+
+        (!takeAway && Get.find<SplashController>().configModel!.dmTipsStatus == 1) ? Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+          ),
+          padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeLarge, horizontal: Dimensions.paddingSizeLarge),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            Row(children: [
+              Text('delivery_man_tips'.tr, style: robotoMedium),
+
+              JustTheTooltip(
+                backgroundColor: Colors.black87,
+                controller: tooltipController3,
+                preferredDirection: AxisDirection.right,
+                tailLength: 14,
+                tailBaseWidth: 20,
+                content: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('it_s_a_great_way_to_show_your_appreciation_for_their_hard_work'.tr,style: robotoRegular.copyWith(color: Colors.white)),
+                ),
+                child: InkWell(
+                  onTap: () => tooltipController3.showTooltip(),
+                  child: const Icon(Icons.info_outline),
+                ),
+              ),
+
+            ]),
+            const SizedBox(height: Dimensions.paddingSizeSmall),
+
+            SizedBox(
+              height: (orderController.selectedTips == AppConstants.tips.length-1) && orderController.canShowTipsField ? 0 : 40,
+              child: (orderController.selectedTips == AppConstants.tips.length-1) && orderController.canShowTipsField ? const SizedBox() : ListView.builder(
+                scrollDirection: Axis.horizontal,
+                shrinkWrap: true,
+                physics: const BouncingScrollPhysics(),
+                itemCount: AppConstants.tips.length,
+                itemBuilder: (context, index) {
+                  return TipsWidget(
+                    title: (index != 0 && index != AppConstants.tips.length -1) ? PriceConverter.convertPrice(double.parse(AppConstants.tips[index].toString()), forDM: true) : AppConstants.tips[index].tr,
+                    isSelected: orderController.selectedTips == index,
+                    onTap: () {
+                      orderController.updateTips(index);
+                      if(orderController.selectedTips != 0 && orderController.selectedTips != AppConstants.tips.length-1){
+                        orderController.addTips(double.parse(AppConstants.tips[index]));
+                      }
+                      if(orderController.selectedTips == AppConstants.tips.length-1){
+                        orderController.showTipsField();
+                      }
+                      _tipController.text = orderController.tips.toString();
+                    },
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: (orderController.selectedTips == AppConstants.tips.length-1) && orderController.canShowTipsField ? Dimensions.paddingSizeExtraSmall : 0),
+
+            orderController.selectedTips == AppConstants.tips.length-1 ? const SizedBox() : ListTile(
+              onTap: () => orderController.toggleDmTipSave(),
+              leading: Checkbox(
+                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                activeColor: Theme.of(context).primaryColor,
+                value: orderController.isDmTipSave,
+                onChanged: (bool? isChecked) => orderController.toggleDmTipSave(),
+              ),
+              title: Text('save_for_later'.tr, style: robotoMedium.copyWith(color: Theme.of(context).primaryColor)),
+              contentPadding: EdgeInsets.zero,
+              visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
+              dense: true,
+              horizontalTitleGap: 0,
+            ),
+            SizedBox(height: orderController.selectedTips == AppConstants.tips.length-1 ? Dimensions.paddingSizeDefault : 0),
+
+            orderController.selectedTips == AppConstants.tips.length-1 ? Row(children: [
+              Expanded(
+                child: CustomTextField(
+                  titleText: 'enter_amount'.tr,
+                  controller: _tipController,
+                  inputAction: TextInputAction.done,
+                  inputType: TextInputType.number,
+                  onSubmit: (value) {
+                    if(value.isNotEmpty){
+                      if(double.parse(value) >= 0){
+                        orderController.addTips(double.parse(value));
+                      }else{
+                        showCustomSnackBar('tips_can_not_be_negative'.tr);
+                      }
+                    }else{
+                      orderController.addTips(0.0);
+                    }
+                  },
+                  onChanged: (String value) {
+                    if(value.isNotEmpty){
+                      if(double.parse(value) >= 0){
+                        orderController.addTips(double.parse(value));
+                      }else{
+                        showCustomSnackBar('tips_can_not_be_negative'.tr);
+                      }
+                    }else{
+                      orderController.addTips(0.0);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: Dimensions.paddingSizeSmall),
+
+              InkWell(
+                onTap: () {
+                  orderController.updateTips(0);
+                  orderController.showTipsField();
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).primaryColor.withOpacity(0.5),
+                  ),
+                  padding: const EdgeInsets.all(Dimensions.paddingSizeSmall),
+                  child: const Icon(Icons.clear),
+                ),
+              ),
+
+            ]) : const SizedBox(),
+
+          ]),
+        ) : const SizedBox.shrink(),
+        SizedBox(height: (!takeAway && widget.storeId == null
+            && Get.find<SplashController>().configModel!.dmTipsStatus == 1) ? Dimensions.paddingSizeSmall : 0),
+
+
+      ]),
+    );
+  }
+
+  Widget bottomSection(OrderController orderController, double total, Module module,
+      double subTotal, double discount, CouponController couponController, bool taxIncluded, double tax,
+      double deliveryCharge, StoreController storeController, LocationController locationController, bool todayClosed, bool tomorrowClosed,
+      double orderAmount, double? maxCodOrderAmount) {
+    bool takeAway = orderController.orderType == 'take_away';
+
+    return Container(
+      decoration: ResponsiveHelper.isDesktop(context) ? BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
+        boxShadow: [BoxShadow(color: Colors.grey[Get.isDarkMode ? 700 : 300]!, blurRadius: 5, spreadRadius: 1)],
+      ) : null,
+      padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeSmall),
+      child: Column(children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+          ),
+          padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeLarge, horizontal: Dimensions.paddingSizeLarge),
+          child: Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(widget.storeId != null ? 'payment_method'.tr : 'choose_payment_method'.tr, style: robotoMedium),
+
+              widget.storeId == null ? InkWell(
+                onTap: (){
+                  if(ResponsiveHelper.isDesktop(context)){
+                    Get.dialog(Dialog(child: PaymentMethodBottomSheet(
+                      isCashOnDeliveryActive: _isCashOnDeliveryActive!, isDigitalPaymentActive: _isDigitalPaymentActive!,
+                      isWalletActive: _isWalletActive, storeId: widget.storeId,
+                    )));
+                  }else{
+                    showModalBottomSheet(
+                      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+                      builder: (con) => PaymentMethodBottomSheet(
+                        isCashOnDeliveryActive: _isCashOnDeliveryActive!, isDigitalPaymentActive: _isDigitalPaymentActive!,
+                        isWalletActive: _isWalletActive, storeId: widget.storeId,
+                      ),
+                    );
+                  }
+                },
+                child: Image.asset(Images.paymentSelect, height: 24, width: 24),
+              ) : const SizedBox(),
+            ]),
+
+            const Divider(),
+
+            widget.storeId != null ? orderController.paymentMethodIndex == 0 ? Row(children: [
+              Image.asset(Images.codIcon , width: 20, height: 20,
+                color: Theme.of(context).textTheme.bodyMedium!.color,
+              ),
+              const SizedBox(width: Dimensions.paddingSizeSmall),
+
+              Expanded(child: Text('cash_on_delivery'.tr,
+                style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
+              )),
+
+              Text(
+                PriceConverter.convertPrice(total), textDirection: TextDirection.ltr,
+                style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
+              )
+
+            ]) : const SizedBox() : Row(children: [
+               Image.asset(
+                orderController.paymentMethodIndex == 0 ? Images.codIcon : orderController.paymentMethodIndex == 1
+                    ? Images.digitalPayment : Images.wallet,
+                width: 20, height: 20,
+                color: Theme.of(context).textTheme.bodyMedium!.color,
+              ),
+              const SizedBox(width: Dimensions.paddingSizeSmall),
+
+              Expanded(
+                child: Text(
+                  orderController.paymentMethodIndex == 0 ? 'cash_on_delivery'.tr
+                      : orderController.paymentMethodIndex == 1 ? 'digital_payment'.tr : 'wallet_payment'.tr,
+                  style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
+                ),
+              ),
+              Text(
+                PriceConverter.convertPrice(total), textDirection: TextDirection.ltr,
+                style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
+              ),
+            ]),
+
+          ]),
+        ),
+
+        const SizedBox(height: Dimensions.paddingSizeSmall),
+
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.05), blurRadius: 10)],
+          ),
+          padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeDefault, horizontal: Dimensions.paddingSizeLarge),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            Text('additional_note'.tr, style: robotoMedium),
+            const SizedBox(height: Dimensions.paddingSizeSmall),
+
+            CustomTextField(
+              controller: _noteController,
+              titleText: 'please_provide_extra_napkin'.tr,
+              maxLines: 3,
+              inputType: TextInputType.multiline,
+              inputAction: TextInputAction.done,
+              capitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: Dimensions.paddingSizeLarge),
+
+            widget.storeId == null && Get.find<SplashController>().configModel!.moduleConfig!.module!.orderAttachment! ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Text('prescription'.tr, style: robotoMedium),
+                  const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+                  Text(
+                    '(${'max_size_2_mb'.tr})',
+                    style: robotoRegular.copyWith(
+                      fontSize: Dimensions.fontSizeExtraSmall,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: Dimensions.paddingSizeSmall),
+                ImagePickerWidget(
+                  image: '', rawFile: orderController.rawAttachment,
+                  onTap: () => orderController.pickImage(),
+                ),
+              ],
+            ) : const SizedBox(),
+
+            widget.storeId == null ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(module.addOn! ? 'subtotal'.tr : 'item_price'.tr, style: robotoMedium),
+              Text(PriceConverter.convertPrice(subTotal), style: robotoMedium, textDirection: TextDirection.ltr),
+            ]) : const SizedBox(),
+            SizedBox(height: widget.storeId == null ? Dimensions.paddingSizeSmall : 0),
+
+            widget.storeId == null ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('discount'.tr, style: robotoRegular),
+              Text('(-) ${PriceConverter.convertPrice(discount)}', style: robotoRegular, textDirection: TextDirection.ltr),
+            ]) : const SizedBox(),
+            const SizedBox(height: Dimensions.paddingSizeSmall),
+
+            (couponController.discount! > 0 || couponController.freeDelivery) ? Column(children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('coupon_discount'.tr, style: robotoRegular),
+                (couponController.coupon != null && couponController.coupon!.couponType == 'free_delivery') ? Text(
+                  'free_delivery'.tr, style: robotoRegular.copyWith(color: Theme.of(context).primaryColor),
+                ) : Text(
+                  '(-) ${PriceConverter.convertPrice(couponController.discount)}',
+                  style: robotoRegular, textDirection: TextDirection.ltr,
+                ),
+              ]),
+              const SizedBox(height: Dimensions.paddingSizeSmall),
+            ]) : const SizedBox(),
+            widget.storeId == null ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('${'vat_tax'.tr} ${taxIncluded ? 'tax_included'.tr : ''} ($_taxPercent%)', style: robotoRegular),
+              Text((taxIncluded ? '' : '(+) ') + PriceConverter.convertPrice(tax), style: robotoRegular, textDirection: TextDirection.ltr),
+            ]) : const SizedBox(),
+            SizedBox(height: widget.storeId == null ? Dimensions.paddingSizeSmall : 0),
+
+            (!takeAway && Get.find<SplashController>().configModel!.dmTipsStatus == 1) ? Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('delivery_man_tips'.tr, style: robotoRegular),
+                Text('(+) ${PriceConverter.convertPrice(orderController.tips)}', style: robotoRegular, textDirection: TextDirection.ltr),
+              ],
+            ) : const SizedBox.shrink(),
+            SizedBox(height: !takeAway && Get.find<SplashController>().configModel!.dmTipsStatus == 1 ? Dimensions.paddingSizeSmall : 0.0),
+
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('delivery_fee'.tr, style: robotoRegular),
+              orderController.distance == -1 ? Text(
+                'calculating'.tr, style: robotoRegular.copyWith(color: Colors.red),
+              ) : (deliveryCharge == 0 || (couponController.coupon != null && couponController.coupon!.couponType == 'free_delivery')) ? Text(
+                'free'.tr, style: robotoRegular.copyWith(color: Theme.of(context).primaryColor),
+              ) : Text(
+                '(+) ${PriceConverter.convertPrice(deliveryCharge)}', style: robotoRegular, textDirection: TextDirection.ltr,
+              ),
+            ]),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeSmall),
+              child: Divider(thickness: 1, color: Theme.of(context).hintColor.withOpacity(0.5)),
+            ),
+
+            ResponsiveHelper.isDesktop(context) ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(
+                'total_amount'.tr,
+                style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
+              ),
+              Text(
+                PriceConverter.convertPrice(total), textDirection: TextDirection.ltr,
+                style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeLarge, color: Theme.of(context).primaryColor),
+              ),
+            ]) : const SizedBox(),
+
+            const SizedBox(height: Dimensions.paddingSizeLarge),
+
+            CheckoutCondition(orderController: orderController, parcelController: Get.find<ParcelController>()),
+          ]),
+        ),
+
+        ResponsiveHelper.isDesktop(context) ? Padding(
+          padding: const EdgeInsets.only(top: Dimensions.paddingSizeLarge),
+          child: _orderPlaceButton(
+            orderController, storeController, locationController, todayClosed, tomorrowClosed, orderAmount, deliveryCharge, tax, discount, total, maxCodOrderAmount,
+          ),
+        ) : const SizedBox(),
+      ]),
+    );
+  }
+
+  void _callback(bool isSuccess, String? message, String orderID, int? zoneID, double amount, double? maximumCodOrderAmount) async {
     if(isSuccess) {
       if(widget.fromCart) {
         Get.find<CartController>().clearCartList();
@@ -829,82 +1241,94 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if(!Get.find<OrderController>().showBottomSheet){
         Get.find<OrderController>().showRunningOrders();
       }
+      if(Get.find<OrderController>().isDmTipSave){
+        Get.find<AuthController>().saveDmTipIndex(Get.find<OrderController>().selectedTips.toString());
+      }
       Get.find<OrderController>().stopLoader();
       HomeScreen.loadData(true);
       if(Get.find<OrderController>().paymentMethodIndex == 1) {
         if(GetPlatform.isWeb) {
           Get.back();
-          String hostname = html.window.location.hostname;
+          String? hostname = html.window.location.hostname;
           String protocol = html.window.location.protocol;
-          String selectedUrl = '${AppConstants.BASE_URL}/payment-mobile?order_id=$orderID&&customer_id=${Get.find<UserController>()
-              .userInfoModel.id}&&callback=$protocol//$hostname${RouteHelper.orderSuccess}?id=$orderID&status=';
+          String selectedUrl = '${AppConstants.baseUrl}/payment-mobile?order_id=$orderID&&customer_id=${Get.find<UserController>()
+              .userInfoModel!.id}&&callback=$protocol//$hostname${RouteHelper.orderSuccess}?id=$orderID&status=';
           html.window.open(selectedUrl,"_self");
         } else{
           Get.offNamed(RouteHelper.getPaymentRoute(
-            orderID, Get.find<UserController>().userInfoModel.id, Get.find<OrderController>().orderType, amount, _isCashOnDeliveryActive
+            orderID, Get.find<UserController>().userInfoModel!.id, Get.find<OrderController>().orderType, amount, _isCashOnDeliveryActive
           ));
         }
       }else {
-        Get.offNamed(RouteHelper.getOrderSuccessRoute(orderID));
+       double total = ((amount / 100) * Get.find<SplashController>().configModel!.loyaltyPointItemPurchasePoint!);
+       Get.find<AuthController>().saveEarningPoint(total.toStringAsFixed(0));
+       Get.offNamed(RouteHelper.getOrderSuccessRoute(orderID));
       }
       Get.find<OrderController>().clearPrevData(zoneID);
       Get.find<CouponController>().removeCouponData(false);
-      Get.find<OrderController>().updateTips(-1, notify: false);
+      Get.find<OrderController>().updateTips(Get.find<AuthController>().getDmTipIndex().isNotEmpty ? int.parse(Get.find<AuthController>().getDmTipIndex()) : 1, notify: false);
     }else {
       showCustomSnackBar(message);
     }
   }
 
   Widget _orderPlaceButton(OrderController orderController, StoreController storeController, LocationController locationController, bool todayClosed, bool tomorrowClosed,
-      double orderAmount, double deliveryCharge, double tax, double discount, double total, double maxCodOrderAmount) {
+      double orderAmount, double? deliveryCharge, double tax, double? discount, double total, double? maxCodOrderAmount) {
     return Container(
-      width: Dimensions.WEB_MAX_WIDTH,
+      width: Dimensions.webMaxWidth,
       alignment: Alignment.center,
-      padding: ResponsiveHelper.isDesktop(context) ? null : EdgeInsets.all(Dimensions.PADDING_SIZE_SMALL),
-      child: !orderController.isLoading ? CustomButton(buttonText: 'confirm_order'.tr, onPressed: orderController.acceptTerms ? () {
-        bool _isAvailable = true;
-        DateTime _scheduleStartDate = DateTime.now();
-        DateTime _scheduleEndDate = DateTime.now();
-        if(orderController.timeSlots == null || orderController.timeSlots.length == 0) {
-          _isAvailable = false;
+      padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeSmall, horizontal: Dimensions.paddingSizeLarge),
+      child: CustomButton(
+        isLoading: orderController.isLoading,
+        buttonText: 'confirm_order'.tr,
+        onPressed: orderController.acceptTerms ? () {
+        bool isAvailable = true;
+        DateTime scheduleStartDate = DateTime.now();
+        DateTime scheduleEndDate = DateTime.now();
+        if(orderController.timeSlots == null || orderController.timeSlots!.isEmpty) {
+          isAvailable = false;
         }else {
-          DateTime _date = orderController.selectedDateSlot == 0 ? DateTime.now() : DateTime.now().add(Duration(days: 1));
-          DateTime _startTime = orderController.timeSlots[orderController.selectedTimeSlot].startTime;
-          DateTime _endTime = orderController.timeSlots[orderController.selectedTimeSlot].endTime;
-          _scheduleStartDate = DateTime(_date.year, _date.month, _date.day, _startTime.hour, _startTime.minute+1);
-          _scheduleEndDate = DateTime(_date.year, _date.month, _date.day, _endTime.hour, _endTime.minute+1);
+          DateTime date = orderController.selectedDateSlot == 0 ? DateTime.now() : DateTime.now().add(const Duration(days: 1));
+          DateTime startTime = orderController.timeSlots![orderController.selectedTimeSlot].startTime!;
+          DateTime endTime = orderController.timeSlots![orderController.selectedTimeSlot].endTime!;
+          scheduleStartDate = DateTime(date.year, date.month, date.day, startTime.hour, startTime.minute+1);
+          scheduleEndDate = DateTime(date.year, date.month, date.day, endTime.hour, endTime.minute+1);
           if(_cartList != null){
-            for (CartModel cart in _cartList) {
+            for (CartModel? cart in _cartList!) {
               if (!DateConverter.isAvailable(
-                cart.item.availableTimeStarts, cart.item.availableTimeEnds,
-                time: storeController.store.scheduleOrder ? _scheduleStartDate : null,
+                cart!.item!.availableTimeStarts, cart.item!.availableTimeEnds,
+                time: storeController.store!.scheduleOrder! ? scheduleStartDate : null,
               ) && !DateConverter.isAvailable(
-                cart.item.availableTimeStarts, cart.item.availableTimeEnds,
-                time: storeController.store.scheduleOrder ? _scheduleEndDate : null,
+                cart.item!.availableTimeStarts, cart.item!.availableTimeEnds,
+                time: storeController.store!.scheduleOrder! ? scheduleEndDate : null,
               )) {
-                _isAvailable = false;
+                isAvailable = false;
                 break;
               }
             }
           }
         }
-        if(!_isCashOnDeliveryActive && !_isDigitalPaymentActive && !_isWalletActive) {
+        if(!_isCashOnDeliveryActive! && !_isDigitalPaymentActive! && !_isWalletActive) {
           showCustomSnackBar('no_payment_method_is_enabled'.tr);
-        }else if(orderAmount < storeController.store.minimumOrder) {
-          showCustomSnackBar('${'minimum_order_amount_is'.tr} ${storeController.store.minimumOrder}');
+        }else if(orderAmount < storeController.store!.minimumOrder! && widget.storeId == null) {
+          showCustomSnackBar('${'minimum_order_amount_is'.tr} ${storeController.store!.minimumOrder}');
+        }else if(_tipController.text.isNotEmpty && _tipController.text != 'not_now' && double.parse(_tipController.text.trim()) < 0) {
+          showCustomSnackBar('tips_can_not_be_negative'.tr);
         }else if((orderController.selectedDateSlot == 0 && todayClosed) || (orderController.selectedDateSlot == 1 && tomorrowClosed)) {
-          showCustomSnackBar(Get.find<SplashController>().configModel.moduleConfig.module.showRestaurantText
+          showCustomSnackBar(Get.find<SplashController>().configModel!.moduleConfig!.module!.showRestaurantText!
               ? 'restaurant_is_closed'.tr : 'store_is_closed'.tr);
-        }else if(orderController.paymentMethodIndex == 0 && _isCashOnDeliveryActive && maxCodOrderAmount != null && maxCodOrderAmount != 0 && (total > maxCodOrderAmount) && widget.storeId == null){
-          showCustomSnackBar('you_cant_order_more_then'.tr + ' ${PriceConverter.convertPrice(maxCodOrderAmount)} ' + 'in_cash_on_delivery'.tr);
-        }else if (orderController.timeSlots == null || orderController.timeSlots.length == 0) {
-          if(storeController.store.scheduleOrder) {
+        }else if(orderController.paymentMethodIndex == 0 && _isCashOnDeliveryActive! && maxCodOrderAmount != null && maxCodOrderAmount != 0 && (total > maxCodOrderAmount) && widget.storeId == null){
+          showCustomSnackBar('${'you_cant_order_more_then'.tr} ${PriceConverter.convertPrice(maxCodOrderAmount)} ${'in_cash_on_delivery'.tr}');
+        }else if(orderController.paymentMethodIndex != 0 && widget.storeId != null){
+          showCustomSnackBar('payment_method_is_not_available'.tr);
+        }else if (orderController.timeSlots == null || orderController.timeSlots!.isEmpty) {
+          if(storeController.store!.scheduleOrder!) {
             showCustomSnackBar('select_a_time'.tr);
           }else {
-            showCustomSnackBar(Get.find<SplashController>().configModel.moduleConfig.module.showRestaurantText
+            showCustomSnackBar(Get.find<SplashController>().configModel!.moduleConfig!.module!.showRestaurantText!
                 ? 'restaurant_is_closed'.tr : 'store_is_closed'.tr);
           }
-        }else if (!_isAvailable) {
+        }else if (!isAvailable) {
           showCustomSnackBar('one_or_more_products_are_not_available_for_this_selected_time'.tr);
         }else if (orderController.orderType != 'take_away' && orderController.distance == -1 && deliveryCharge == -1) {
           showCustomSnackBar('delivery_fee_not_set_yet'.tr);
@@ -915,69 +1339,72 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
         else {
 
-          AddressModel _address = orderController.addressIndex == -1 ? Get.find<LocationController>().getUserAddress()
-              : locationController.addressList[orderController.addressIndex];
+          AddressModel? finalAddress = address[orderController.addressIndex!];
 
           if(widget.storeId == null){
             List<Cart> carts = [];
-            for (int index = 0; index < _cartList.length; index++) {
-              CartModel cart = _cartList[index];
-              List<int> _addOnIdList = [];
-              List<int> _addOnQtyList = [];
-              cart.addOnIds.forEach((addOn) {
-                _addOnIdList.add(addOn.id);
-                _addOnQtyList.add(addOn.quantity);
-              });
+            for (int index = 0; index < _cartList!.length; index++) {
+              CartModel cart = _cartList![index]!;
+              List<int?> addOnIdList = [];
+              List<int?> addOnQtyList = [];
+              for (var addOn in cart.addOnIds!) {
+                addOnIdList.add(addOn.id);
+                addOnQtyList.add(addOn.quantity);
+              }
 
-              List<OrderVariation> _variations = [];
-              if(Get.find<SplashController>().getModuleConfig(cart.item.moduleType).newVariation) {
-                for(int i=0; i<cart.item.foodVariations.length; i++) {
-                  if(cart.foodVariations[i].contains(true)) {
-                    _variations.add(OrderVariation(name: cart.item.foodVariations[i].name, values: OrderVariationValue(label: [])));
-                    for(int j=0; j<cart.item.foodVariations[i].variationValues.length; j++) {
-                      if(cart.foodVariations[i][j]) {
-                        _variations[_variations.length-1].values.label.add(cart.item.foodVariations[i].variationValues[j].level);
+              List<OrderVariation> variations = [];
+              if(Get.find<SplashController>().getModuleConfig(cart.item!.moduleType).newVariation!) {
+                for(int i=0; i<cart.item!.foodVariations!.length; i++) {
+                  if(cart.foodVariations![i].contains(true)) {
+                    variations.add(OrderVariation(name: cart.item!.foodVariations![i].name, values: OrderVariationValue(label: [])));
+                    for(int j=0; j<cart.item!.foodVariations![i].variationValues!.length; j++) {
+                      if(cart.foodVariations![i][j]!) {
+                        variations[variations.length-1].values!.label!.add(cart.item!.foodVariations![i].variationValues![j].level);
                       }
                     }
                   }
                 }
               }
               carts.add(Cart(
-                cart.isCampaign ? null : cart.item.id, cart.isCampaign ? cart.item.id : null,
+                cart.isCampaign! ? null : cart.item!.id, cart.isCampaign! ? cart.item!.id : null,
                 cart.discountedPrice.toString(), '',
-                Get.find<SplashController>().getModuleConfig(cart.item.moduleType).newVariation ? null : cart.variation,
-                Get.find<SplashController>().getModuleConfig(cart.item.moduleType).newVariation ? _variations : null,
-                cart.quantity, _addOnIdList, cart.addOns, _addOnQtyList,
+                Get.find<SplashController>().getModuleConfig(cart.item!.moduleType).newVariation! ? null : cart.variation,
+                Get.find<SplashController>().getModuleConfig(cart.item!.moduleType).newVariation! ? variations : null,
+                cart.quantity, addOnIdList, cart.addOns, addOnQtyList,
               ));
             }
 
             orderController.placeOrder(PlaceOrderBody(
               cart: carts, couponDiscountAmount: Get.find<CouponController>().discount, distance: orderController.distance,
-              scheduleAt: !storeController.store.scheduleOrder ? null : (orderController.selectedDateSlot == 0
-                  && orderController.selectedTimeSlot == 0) ? null : DateConverter.dateToDateAndTime(_scheduleEndDate),
+              scheduleAt: !storeController.store!.scheduleOrder! ? null : (orderController.selectedDateSlot == 0
+                  && orderController.selectedTimeSlot == 0) ? null : DateConverter.dateToDateAndTime(scheduleEndDate),
               orderAmount: total, orderNote: _noteController.text, orderType: orderController.orderType,
               paymentMethod: orderController.paymentMethodIndex == 0 ? 'cash_on_delivery'
                   : orderController.paymentMethodIndex == 1 ? 'digital_payment' : 'wallet',
-              couponCode: (Get.find<CouponController>().discount > 0 || (Get.find<CouponController>().coupon != null
-                  && Get.find<CouponController>().freeDelivery)) ? Get.find<CouponController>().coupon.code : null,
-              storeId: _cartList[0].item.storeId,
-              address: _address.address, latitude: _address.latitude, longitude: _address.longitude, addressType: _address.addressType,
-              contactPersonName: _address.contactPersonName ?? '${Get.find<UserController>().userInfoModel.fName} '
-                  '${Get.find<UserController>().userInfoModel.lName}',
-              contactPersonNumber: _address.contactPersonNumber ?? Get.find<UserController>().userInfoModel.phone,
-              streetNumber: _streetNumberController.text.trim() ?? '', house: _houseController.text.trim(), floor: _floorController.text.trim(),
+              couponCode: (Get.find<CouponController>().discount! > 0 || (Get.find<CouponController>().coupon != null
+                  && Get.find<CouponController>().freeDelivery)) ? Get.find<CouponController>().coupon!.code : null,
+              storeId: _cartList![0]!.item!.storeId,
+              address: finalAddress.address, latitude: finalAddress.latitude, longitude: finalAddress.longitude, addressType: finalAddress.addressType,
+              contactPersonName: finalAddress.contactPersonName ?? '${Get.find<UserController>().userInfoModel!.fName} '
+                  '${Get.find<UserController>().userInfoModel!.lName}',
+              contactPersonNumber: finalAddress.contactPersonNumber ?? Get.find<UserController>().userInfoModel!.phone,
+              streetNumber: _streetNumberController.text.trim(), house: _houseController.text.trim(), floor: _floorController.text.trim(),
               discountAmount: discount, taxAmount: tax, receiverDetails: null, parcelCategoryId: null,
-              chargePayer: null, dmTips: _tipController.text.trim(),
-            ), storeController.store.zoneId, _callback, total, maxCodOrderAmount);
+              chargePayer: null, dmTips: _tipController.text.trim(), cutlery: Get.find<CartController>().addCutlery ? 1 : 0,
+              unavailableItemNote: Get.find<CartController>().notAvailableIndex != -1 ? Get.find<CartController>().notAvailableList[Get.find<CartController>().notAvailableIndex] : '',
+              deliveryInstruction: orderController.selectedInstruction != -1 ? AppConstants.deliveryInstructionList[orderController.selectedInstruction] : '',
+            ), storeController.store!.zoneId, _callback, total, maxCodOrderAmount);
           }else{
 
-            orderController.placePrescriptionOrder(widget.storeId, storeController.store.zoneId, orderController.distance,
-                _address.address, _address.longitude, _address.latitude, _noteController.text, storeController.pickedPrescriptions, _callback, 0, 0
+            orderController.placePrescriptionOrder(widget.storeId, storeController.store!.zoneId, orderController.distance,
+                finalAddress.address!, finalAddress.longitude!, finalAddress.latitude!, _noteController.text,
+                storeController.pickedPrescriptions, _tipController.text.trim(), orderController.selectedInstruction != -1
+                    ? AppConstants.deliveryInstructionList[orderController.selectedInstruction] : '', _callback, 0, 0
             );
           }
 
         }
-      } : null) : Center(child: CircularProgressIndicator()),
+      } : null),
     );
   }
 

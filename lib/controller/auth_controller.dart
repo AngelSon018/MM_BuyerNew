@@ -17,71 +17,155 @@ import 'package:sixam_mart/data/model/response/response_model.dart';
 import 'package:sixam_mart/data/model/response/zone_model.dart';
 import 'package:sixam_mart/data/model/response/zone_response_model.dart';
 import 'package:sixam_mart/data/repository/auth_repo.dart';
+import 'package:sixam_mart/helper/responsive_helper.dart';
 import 'package:sixam_mart/helper/route_helper.dart';
 import 'package:sixam_mart/view/base/custom_snackbar.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class AuthController extends GetxController implements GetxService {
   final AuthRepo authRepo;
-  AuthController({@required this.authRepo}) {
+  AuthController({required this.authRepo}) {
    _notification = authRepo.isNotificationActive();
   }
 
   bool _isLoading = false;
   bool _notification = true;
   bool _acceptTerms = true;
-  XFile _pickedLogo;
-  XFile _pickedCover;
-  List<ZoneModel> _zoneList;
-  int _selectedZoneIndex = 0;
-  LatLng _restaurantLocation;
-  List<int> _zoneIds;
-  XFile _pickedImage;
+  XFile? _pickedLogo;
+  XFile? _pickedCover;
+  List<ZoneModel>? _zoneList;
+  int? _selectedZoneIndex = -1;
+  LatLng? _restaurantLocation;
+  List<int>? _zoneIds;
+  XFile? _pickedImage;
   List<XFile> _pickedIdentities = [];
-  List<String> _identityTypeList = ['passport', 'driving_license', 'nid'];
+  final List<String> _identityTypeList = ['passport', 'driving_license', 'nid'];
   int _identityTypeIndex = 0;
-  List<String> _dmTypeList = ['freelancer', 'salary_based'];
+  final List<String?> _dmTypeList = ['freelancer', 'salary_based'];
   int _dmTypeIndex = 0;
-  List<String> _deliveryTimeTypeList = ['minute', 'hours', 'days'];
-  int _deliveryTimeTypeIndex = 0;
-  List<ModuleModel> _moduleList;
-  int _selectedModuleIndex = 0;
-  List<DeliveryManVehicleModel> _vehicles;
-  List<int> _vehicleIds;
-  int _vehicleIndex = 0;
+  List<ModuleModel>? _moduleList;
+  int? _selectedModuleIndex = -1;
+  List<DeliveryManVehicleModel>? _vehicles;
+  List<int?>? _vehicleIds;
+  int? _vehicleIndex = 0;
+  double _dmStatus = 0.4;
+  bool _lengthCheck = false;
+  bool _numberCheck = false;
+  bool _uppercaseCheck = false;
+  bool _lowercaseCheck = false;
+  bool _spatialCheck = false;
+  double _storeStatus = 0.4;
+  String? _storeAddress;
+  String _storeMinTime = '--';
+  String _storeMaxTime = '--';
+  String _storeTimeUnit = 'minute';
+  bool _showPassView = false;
 
   bool get isLoading => _isLoading;
   bool get notification => _notification;
   bool get acceptTerms => _acceptTerms;
-  XFile get pickedLogo => _pickedLogo;
-  XFile get pickedCover => _pickedCover;
-  List<ZoneModel> get zoneList => _zoneList;
-  int get selectedZoneIndex => _selectedZoneIndex;
-  LatLng get restaurantLocation => _restaurantLocation;
-  List<int> get zoneIds => _zoneIds;
-  XFile get pickedImage => _pickedImage;
+  XFile? get pickedLogo => _pickedLogo;
+  XFile? get pickedCover => _pickedCover;
+  List<ZoneModel>? get zoneList => _zoneList;
+  int? get selectedZoneIndex => _selectedZoneIndex;
+  LatLng? get restaurantLocation => _restaurantLocation;
+  List<int>? get zoneIds => _zoneIds;
+  XFile? get pickedImage => _pickedImage;
   List<XFile> get pickedIdentities => _pickedIdentities;
   List<String> get identityTypeList => _identityTypeList;
   int get identityTypeIndex => _identityTypeIndex;
-  List<String> get dmTypeList => _dmTypeList;
+  List<String?> get dmTypeList => _dmTypeList;
   int get dmTypeIndex => _dmTypeIndex;
-  List<String> get deliveryTimeTypeList => _deliveryTimeTypeList;
-  int get deliveryTimeTypeIndex => _deliveryTimeTypeIndex;
-  List<ModuleModel> get moduleList => _moduleList;
-  int get selectedModuleIndex => _selectedModuleIndex;
-  List<DeliveryManVehicleModel> get vehicles => _vehicles;
-  List<int> get vehicleIds => _vehicleIds;
-  int get vehicleIndex => _vehicleIndex;
+  List<ModuleModel>? get moduleList => _moduleList;
+  int? get selectedModuleIndex => _selectedModuleIndex;
+  List<DeliveryManVehicleModel>? get vehicles => _vehicles;
+  List<int?>? get vehicleIds => _vehicleIds;
+  int? get vehicleIndex => _vehicleIndex;
+  double get dmStatus => _dmStatus;
+  bool get lengthCheck => _lengthCheck;
+  bool get numberCheck => _numberCheck;
+  bool get uppercaseCheck => _uppercaseCheck;
+  bool get lowercaseCheck => _lowercaseCheck;
+  bool get spatialCheck => _spatialCheck;
+  double get storeStatus => _storeStatus;
+  String? get storeAddress => _storeAddress;
+  String get storeMinTime => _storeMinTime;
+  String get storeMaxTime => _storeMaxTime;
+  String get storeTimeUnit => _storeTimeUnit;
+  bool get showPassView => _showPassView;
+
+  void showHidePass({bool isUpdate = true}){
+    _showPassView = ! _showPassView;
+    if(isUpdate) {
+      update();
+    }
+  }
+
+  void minTimeChange(String time){
+    _storeMinTime = time;
+    update();
+  }
+
+  void maxTimeChange(String time){
+    _storeMaxTime = time;
+    update();
+  }
+
+  void timeUnitChange(String unit){
+    _storeTimeUnit = unit;
+    update();
+  }
+
+  void validPassCheck(String pass, {bool isUpdate = true}) {
+    _lengthCheck = false;
+    _numberCheck = false;
+    _uppercaseCheck = false;
+    _lowercaseCheck = false;
+    _spatialCheck = false;
+
+    if(pass.length > 7){
+      _lengthCheck = true;
+    }
+    if(pass.contains(RegExp(r'[a-z]'))) {
+      _lowercaseCheck = true;
+    }
+    if(pass.contains(RegExp(r'[A-Z]'))){
+      _uppercaseCheck = true;
+    }
+    if(pass.contains(RegExp(r'[ .!@#$&*~^%]'))){
+      _spatialCheck = true;
+    }
+    if(pass.contains(RegExp(r'[\d+]'))){
+      _numberCheck = true;
+    }
+    if(isUpdate) {
+      update();
+    }
+  }
+
+
+  void dmStatusChange(double value, {bool isUpdate = true}){
+    _dmStatus = value;
+    if(isUpdate) {
+      update();
+    }
+  }
+
+  void storeStatusChange(double value, {bool isUpdate = true}){
+    _storeStatus = value;
+    if(isUpdate) {
+      update();
+    }
+  }
 
   Future<void> getVehicleList() async {
     Response response = await authRepo.getVehicleList();
     if (response.statusCode == 200) {
       _vehicles = [];
       _vehicleIds = [];
-      _vehicleIds.add(0);
-      response.body.forEach((vehicle) => _vehicles.add(DeliveryManVehicleModel.fromJson(vehicle)));
-      response.body.forEach((vehicle) => _vehicleIds.add(DeliveryManVehicleModel.fromJson(vehicle).id));
+      _vehicleIds!.add(0);
+      response.body.forEach((vehicle) => _vehicles!.add(DeliveryManVehicleModel.fromJson(vehicle)));
+      response.body.forEach((vehicle) => _vehicleIds!.add(DeliveryManVehicleModel.fromJson(vehicle).id));
 
     } else {
       ApiChecker.checkApi(response);
@@ -89,7 +173,7 @@ class AuthController extends GetxController implements GetxService {
     update();
   }
 
-  void setVehicleIndex(int index, bool notify) {
+  void setVehicleIndex(int? index, bool notify) {
     _vehicleIndex = index;
     if(notify) {
       update();
@@ -102,7 +186,7 @@ class AuthController extends GetxController implements GetxService {
     Response response = await authRepo.registration(signUpBody);
     ResponseModel responseModel;
     if (response.statusCode == 200) {
-      if(!Get.find<SplashController>().configModel.customerVerification) {
+      if(!Get.find<SplashController>().configModel!.customerVerification!) {
         authRepo.saveUserToken(response.body["token"]);
         await authRepo.updateToken();
         Get.find<UserController>().getUserInfo();
@@ -116,16 +200,16 @@ class AuthController extends GetxController implements GetxService {
     return responseModel;
   }
 
-  Future<ResponseModel> login(String phone, String password) async {
+  Future<ResponseModel> login(String? phone, String password, {bool alreadyInApp = false}) async {
     _isLoading = true;
     update();
     Response response = await authRepo.login(phone: phone, password: password);
     ResponseModel responseModel;
     if (response.statusCode == 200) {
-      if(Get.find<SplashController>().configModel.customerVerification && response.body['is_phone_verified'] == 0) {
+      if(Get.find<SplashController>().configModel!.customerVerification! && response.body['is_phone_verified'] == 0) {
 
       }else {
-        authRepo.saveUserToken(response.body['token']);
+        authRepo.saveUserToken(response.body['token'], alreadyInApp: alreadyInApp);
         await authRepo.updateToken();
         Get.find<UserController>().getUserInfo();
       }
@@ -143,14 +227,14 @@ class AuthController extends GetxController implements GetxService {
     update();
     Response response = await authRepo.loginWithSocialMedia(socialLogInBody, 60);
     if (response.statusCode == 200) {
-      String _token = response.body['token'];
-      if(_token != null && _token.isNotEmpty) {
-        if(Get.find<SplashController>().configModel.customerVerification && response.body['is_phone_verified'] == 0) {
-          Get.toNamed(RouteHelper.getVerificationRoute(response.body['phone'] ?? socialLogInBody.email, _token, RouteHelper.signUp, ''));
+      String? token = response.body['token'];
+      if(token != null && token.isNotEmpty) {
+        if(Get.find<SplashController>().configModel!.customerVerification! && response.body['is_phone_verified'] == 0) {
+          Get.toNamed(RouteHelper.getVerificationRoute(response.body['phone'] ?? socialLogInBody.email, token, RouteHelper.signUp, ''));
         }else {
           authRepo.saveUserToken(response.body['token']);
           await authRepo.updateToken();
-          Get.toNamed(RouteHelper.getAccessLocationRoute('sign-in'));
+          Get.find<LocationController>().navigateToLocationScreen('sign-in');
         }
       }else {
         Get.toNamed(RouteHelper.getForgotPassRoute(true, socialLogInBody));
@@ -169,13 +253,13 @@ class AuthController extends GetxController implements GetxService {
     update();
     Response response = await authRepo.registerWithSocialMedia(socialLogInBody);
     if (response.statusCode == 200) {
-      String _token = response.body['token'];
-      if(Get.find<SplashController>().configModel.customerVerification && response.body['is_phone_verified'] == 0) {
-        Get.toNamed(RouteHelper.getVerificationRoute(socialLogInBody.phone, _token, RouteHelper.signUp, ''));
+      String? token = response.body['token'];
+      if(Get.find<SplashController>().configModel!.customerVerification! && response.body['is_phone_verified'] == 0) {
+        Get.toNamed(RouteHelper.getVerificationRoute(socialLogInBody.phone, token, RouteHelper.signUp, ''));
       }else {
         authRepo.saveUserToken(response.body['token']);
         await authRepo.updateToken();
-        Get.toNamed(RouteHelper.getAccessLocationRoute('sign-in'));
+        Get.find<LocationController>().navigateToLocationScreen('sign-in');
       }
     } else {
       showCustomSnackBar(response.statusText);
@@ -184,7 +268,7 @@ class AuthController extends GetxController implements GetxService {
     update();
   }
 
-  Future<ResponseModel> forgetPassword(String email) async {
+  Future<ResponseModel> forgetPassword(String? email) async {
     _isLoading = true;
     update();
     Response response = await authRepo.forgetPassword(email);
@@ -204,7 +288,7 @@ class AuthController extends GetxController implements GetxService {
     await authRepo.updateToken();
   }
 
-  Future<ResponseModel> verifyToken(String email) async {
+  Future<ResponseModel> verifyToken(String? email) async {
     _isLoading = true;
     update();
     Response response = await authRepo.verifyToken(email, _verificationCode);
@@ -219,7 +303,7 @@ class AuthController extends GetxController implements GetxService {
     return responseModel;
   }
 
-  Future<ResponseModel> resetPassword(String resetToken, String number, String password, String confirmPassword) async {
+  Future<ResponseModel> resetPassword(String? resetToken, String number, String password, String confirmPassword) async {
     _isLoading = true;
     update();
     Response response = await authRepo.resetPassword(resetToken, number, password, confirmPassword);
@@ -267,13 +351,13 @@ class AuthController extends GetxController implements GetxService {
     return responseModel;
   }
 
-  Future<ResponseModel> verifyPhone(String phone, String token) async {
+  Future<ResponseModel> verifyPhone(String? phone, String? token) async {
     _isLoading = true;
     update();
     Response response = await authRepo.verifyPhone(phone, _verificationCode);
     ResponseModel responseModel;
     if (response.statusCode == 200) {
-      authRepo.saveUserToken(token);
+      authRepo.saveUserToken(token!);
       await authRepo.updateToken();
       Get.find<UserController>().getUserInfo();
       responseModel = ResponseModel(true, response.body["message"]);
@@ -327,8 +411,8 @@ class AuthController extends GetxController implements GetxService {
     return authRepo.clearSharedData();
   }
   Future<void> socialLogout() async {
-    final GoogleSignIn _googleSignIn = GoogleSignIn();
-    _googleSignIn.disconnect();
+    final GoogleSignIn googleSignIn = GoogleSignIn();
+    googleSignIn.disconnect();
     await FacebookAuth.instance.logOut();
   }
 
@@ -341,15 +425,15 @@ class AuthController extends GetxController implements GetxService {
   }
 
   String getUserNumber() {
-    return authRepo.getUserNumber() ?? "";
+    return authRepo.getUserNumber();
   }
 
   String getUserCountryCode() {
-    return authRepo.getUserCountryCode() ?? "";
+    return authRepo.getUserCountryCode();
   }
 
   String getUserPassword() {
-    return authRepo.getUserPassword() ?? "";
+    return authRepo.getUserPassword();
   }
 
   Future<bool> clearUserNumberAndPassword() async {
@@ -358,6 +442,22 @@ class AuthController extends GetxController implements GetxService {
 
   String getUserToken() {
     return authRepo.getUserToken();
+  }
+
+  void saveDmTipIndex(String i){
+    authRepo.saveDmTipIndex(i);
+  }
+
+  String getDmTipIndex() {
+    return authRepo.getDmTipIndex();
+  }
+
+  void saveEarningPoint(String point){
+    authRepo.saveEarningPoint(point);
+  }
+
+  String getEarningPint() {
+    return authRepo.getEarningPint();
   }
 
   bool setNotificationActive(bool isActive) {
@@ -384,39 +484,42 @@ class AuthController extends GetxController implements GetxService {
   Future<void> getZoneList() async {
     _pickedLogo = null;
     _pickedCover = null;
-    _selectedZoneIndex = 0;
+    _selectedZoneIndex = -1;
     _restaurantLocation = null;
     _zoneIds = null;
     Response response = await authRepo.getZoneList();
     if (response.statusCode == 200) {
       _zoneList = [];
-      response.body.forEach((zone) => _zoneList.add(ZoneModel.fromJson(zone)));
+      response.body.forEach((zone) => _zoneList!.add(ZoneModel.fromJson(zone)));
       setLocation(LatLng(
-        double.parse(Get.find<SplashController>().configModel.defaultLocation.lat ?? '0'),
-        double.parse(Get.find<SplashController>().configModel.defaultLocation.lng ?? '0'),
+        double.parse(Get.find<SplashController>().configModel!.defaultLocation!.lat ?? '0'),
+        double.parse(Get.find<SplashController>().configModel!.defaultLocation!.lng ?? '0'),
       ));
-      await getModules(_zoneList[0].id);
+      await getModules(_zoneList![0].id);
     } else {
       ApiChecker.checkApi(response);
     }
     update();
   }
 
-  Future<void> setZoneIndex(int index) async {
+  Future<void> setZoneIndex(int? index, {bool canUpdate = true}) async {
     _selectedZoneIndex = index;
-    await getModules(zoneList[selectedZoneIndex].id);
-    update();
+    if(canUpdate){
+      await getModules(zoneList![selectedZoneIndex!].id);
+      update();
+    }
   }
 
   void setLocation(LatLng location) async {
-    ZoneResponseModel _response = await Get.find<LocationController>().getZone(
+    ZoneResponseModel response = await Get.find<LocationController>().getZone(
       location.latitude.toString(), location.longitude.toString(), false,
     );
-    if(_response != null && _response.isSuccess && _response.zoneIds.length > 0) {
+    _storeAddress = await Get.find<LocationController>().getAddressFromGeocode(LatLng(location.latitude, location.longitude));
+    if(response.isSuccess && response.zoneIds.isNotEmpty) {
       _restaurantLocation = location;
-      _zoneIds = _response.zoneIds;
-      for(int index=0; index<_zoneList.length; index++) {
-        if(_zoneIds.contains(_zoneList[index].id)) {
+      _zoneIds = response.zoneIds;
+      for(int index=0; index<_zoneList!.length; index++) {
+        if(_zoneIds!.contains(_zoneList![index].id)) {
           _selectedZoneIndex = index;
           break;
         }
@@ -433,7 +536,11 @@ class AuthController extends GetxController implements GetxService {
     update();
     Response response = await authRepo.registerStore(storeBody, _pickedLogo, _pickedCover);
     if(response.statusCode == 200) {
-      Get.offAllNamed(RouteHelper.getInitialRoute());
+      if(ResponsiveHelper.isDesktop(Get.context)){
+        Get.offAllNamed(RouteHelper.getInitialRoute());
+      }else {
+        Get.back();
+      }
       showCustomSnackBar('store_registration_successful'.tr, isError: false);
     }else {
       ApiChecker.checkApi(response);
@@ -473,33 +580,27 @@ class AuthController extends GetxController implements GetxService {
   //   return x > pX;
   // }
 
-  void setIdentityTypeIndex(String identityType, bool notify) {
-    int _index = 0;
+  void setIdentityTypeIndex(String? identityType, bool notify) {
+    int index0 = 0;
     for(int index=0; index<_identityTypeList.length; index++) {
       if(_identityTypeList[index] == identityType) {
-        _index = index;
+        index0 = index;
         break;
       }
     }
-    _identityTypeIndex = _index;
+    _identityTypeIndex = index0;
     if(notify) {
       update();
     }
   }
 
-  void setDMTypeIndex(String dmType, bool notify) {
-    _dmTypeIndex = _dmTypeList.indexOf(dmType);
+  void setDMTypeIndex(int dmType, bool notify) {
+    _dmTypeIndex = dmType;
     if(notify) {
       update();
     }
   }
 
-  void setDeliveryTimeTypeIndex(String type, bool notify) {
-    _deliveryTimeTypeIndex = _deliveryTimeTypeList.indexOf(type);
-    if(notify) {
-      update();
-    }
-  }
 
   void pickDmImage(bool isLogo, bool isRemove) async {
     if(isRemove) {
@@ -509,13 +610,18 @@ class AuthController extends GetxController implements GetxService {
       if (isLogo) {
         _pickedImage = await ImagePicker().pickImage(source: ImageSource.gallery);
       } else {
-        XFile _xFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-        if(_xFile != null) {
-          _pickedIdentities.add(_xFile);
+        XFile? xFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+        if(xFile != null) {
+          _pickedIdentities.add(xFile);
         }
       }
       update();
     }
+  }
+
+  void removeDmImage(){
+    _pickedImage = null;
+    update();
   }
 
   void removeIdentityImage(int index) {
@@ -526,12 +632,12 @@ class AuthController extends GetxController implements GetxService {
   Future<void> registerDeliveryMan(DeliveryManBody deliveryManBody) async {
     _isLoading = true;
     update();
-    List<MultipartBody> _multiParts = [];
-    _multiParts.add(MultipartBody('image', _pickedImage));
+    List<MultipartBody> multiParts = [];
+    multiParts.add(MultipartBody('image', _pickedImage));
     for(XFile file in _pickedIdentities) {
-      _multiParts.add(MultipartBody('identity_image[]', file));
+      multiParts.add(MultipartBody('identity_image[]', file));
     }
-    Response response = await authRepo.registerDeliveryMan(deliveryManBody, _multiParts);
+    Response response = await authRepo.registerDeliveryMan(deliveryManBody, multiParts);
     if (response.statusCode == 200) {
       Get.offAllNamed(RouteHelper.getInitialRoute());
       showCustomSnackBar('delivery_man_registration_successful'.tr, isError: false);
@@ -542,16 +648,18 @@ class AuthController extends GetxController implements GetxService {
     update();
   }
 
-  void selectModuleIndex(int index) {
+  void selectModuleIndex(int? index, {canUpdate = true}) {
     _selectedModuleIndex = index;
-    update();
+    if(canUpdate) {
+      update();
+    }
   }
 
-  Future<void> getModules(int zoneId) async {
+  Future<void> getModules(int? zoneId) async {
     Response response = await authRepo.getModules(zoneId);
     if (response.statusCode == 200) {
       _moduleList = [];
-      response.body.forEach((storeCategory) => _moduleList.add(ModuleModel.fromJson(storeCategory)));
+      response.body.forEach((storeCategory) => _moduleList!.add(ModuleModel.fromJson(storeCategory)));
     } else {
       ApiChecker.checkApi(response);
     }

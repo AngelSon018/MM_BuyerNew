@@ -12,7 +12,7 @@ import 'package:sixam_mart/view/base/menu_drawer.dart';
 class AllStoreScreen extends StatefulWidget {
   final bool isPopular;
   final bool isFeatured;
-  AllStoreScreen({@required this.isPopular, @required this.isFeatured});
+  const AllStoreScreen({Key? key, required this.isPopular, required this.isFeatured}) : super(key: key);
 
   @override
   State<AllStoreScreen> createState() => _AllStoreScreenState();
@@ -35,45 +35,52 @@ class _AllStoreScreenState extends State<AllStoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CustomAppBar(title: widget.isFeatured ? 'featured_stores'.tr :  widget.isPopular
-          ? Get.find<SplashController>().configModel.moduleConfig.module.showRestaurantText
-          ? 'popular_restaurants'.tr : 'popular_stores'.tr : '${'new_on'.tr} ${AppConstants.APP_NAME}'),
-      endDrawer: MenuDrawer(),endDrawerEnableOpenDragGesture: false,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          if(widget.isFeatured) {
-            await Get.find<StoreController>().getFeaturedStoreList();
-          }else if(widget.isPopular) {
-            await Get.find<StoreController>().getPopularStoreList(
-              true, Get.find<StoreController>().type, false,
-            );
-          }else {
-            await Get.find<StoreController>().getLatestStoreList(
-              true, Get.find<StoreController>().type, false,
-            );
-          }
-        },
-        child: Scrollbar(child: SingleChildScrollView(child: FooterView(child: SizedBox(
-          width: Dimensions.WEB_MAX_WIDTH,
-          child: GetBuilder<StoreController>(builder: (storeController) {
-            return ItemsView(
-              isStore: true, items: null, isFeatured: widget.isFeatured,
-              noDataText: widget.isFeatured ? 'no_store_available'.tr : Get.find<SplashController>().configModel.moduleConfig
-                  .module.showRestaurantText ? 'no_restaurant_available'.tr : 'no_store_available'.tr,
-              stores: widget.isFeatured ? storeController.featuredStoreList : widget.isPopular ? storeController.popularStoreList
-                  : storeController.latestStoreList,
-              type: widget.isFeatured ? null : storeController.type, onVegFilterTap: (String type) {
-                if(widget.isPopular) {
-                  Get.find<StoreController>().getPopularStoreList(true, type, true);
-                }else {
-                  Get.find<StoreController>().getLatestStoreList(true, type, true);
-                }
-              },
-            );
-          }),
-        )))),
-      ),
+    return GetBuilder<StoreController>(
+      builder: (storeController) {
+        return Scaffold(
+          appBar: CustomAppBar(
+            title: widget.isFeatured ? 'featured_stores'.tr :  widget.isPopular
+              ? Get.find<SplashController>().configModel!.moduleConfig!.module!.showRestaurantText!
+              ? 'popular_restaurants'.tr : 'popular_stores'.tr : '${'new_on'.tr} ${AppConstants.appName}',
+            type: widget.isFeatured ? null : storeController.type,
+            onVegFilterTap: (String type) {
+              if(widget.isPopular) {
+                Get.find<StoreController>().getPopularStoreList(true, type, true);
+              }else {
+                Get.find<StoreController>().getLatestStoreList(true, type, true);
+              }
+            },
+          ),
+          endDrawer: const MenuDrawer(),endDrawerEnableOpenDragGesture: false,
+          body: RefreshIndicator(
+            onRefresh: () async {
+              if(widget.isFeatured) {
+                await Get.find<StoreController>().getFeaturedStoreList();
+              }else if(widget.isPopular) {
+                await Get.find<StoreController>().getPopularStoreList(
+                  true, Get.find<StoreController>().type, false,
+                );
+              }else {
+                await Get.find<StoreController>().getLatestStoreList(
+                  true, Get.find<StoreController>().type, false,
+                );
+              }
+            },
+            child: Scrollbar(child: SingleChildScrollView(child: FooterView(child: SizedBox(
+              width: Dimensions.webMaxWidth,
+              child: GetBuilder<StoreController>(builder: (storeController) {
+                return ItemsView(
+                  isStore: true, items: null, isFeatured: widget.isFeatured,
+                  noDataText: widget.isFeatured ? 'no_store_available'.tr : Get.find<SplashController>().configModel!.moduleConfig!
+                      .module!.showRestaurantText! ? 'no_restaurant_available'.tr : 'no_store_available'.tr,
+                  stores: widget.isFeatured ? storeController.featuredStoreList : widget.isPopular ? storeController.popularStoreList
+                      : storeController.latestStoreList,
+                );
+              }),
+            )))),
+          ),
+        );
+      }
     );
   }
 }

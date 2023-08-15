@@ -5,25 +5,29 @@ import 'package:sixam_mart/data/model/response/item_model.dart';
 import 'package:sixam_mart/helper/price_converter.dart';
 import 'package:sixam_mart/helper/route_helper.dart';
 import 'package:sixam_mart/util/dimensions.dart';
+import 'package:sixam_mart/util/images.dart';
 import 'package:sixam_mart/util/styles.dart';
 import 'package:sixam_mart/view/base/custom_image.dart';
 import 'package:sixam_mart/view/base/discount_tag.dart';
 import 'package:sixam_mart/view/base/not_available_widget.dart';
+import 'package:sixam_mart/view/base/organic_tag.dart';
 import 'package:sixam_mart/view/base/title_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:get/get.dart';
 
 class BestReviewedItemView extends StatelessWidget {
+  const BestReviewedItemView({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return GetBuilder<ItemController>(builder: (itemController) {
-      List<Item> _itemList = itemController.reviewedItemList;
+      List<Item>? itemList = itemController.reviewedItemList;
 
-      return (_itemList != null && _itemList.length == 0) ? SizedBox() : Column(
+      return (itemList != null && itemList.isEmpty) ? const SizedBox() : Column(
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(10, 15, 10, 10),
+            padding: const EdgeInsets.fromLTRB(10, 15, 10, 10),
             child: TitleWidget(
               title: 'best_reviewed_item'.tr,
               onTap: () => Get.toNamed(RouteHelper.getPopularItemRoute(false)),
@@ -32,29 +36,29 @@ class BestReviewedItemView extends StatelessWidget {
 
           SizedBox(
             height: 220,
-            child: _itemList != null ? ListView.builder(
+            child: itemList != null ? ListView.builder(
               controller: ScrollController(),
-              physics: BouncingScrollPhysics(),
+              physics: const BouncingScrollPhysics(),
               scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.only(left: Dimensions.PADDING_SIZE_SMALL),
-              itemCount: _itemList.length > 10 ? 10 : _itemList.length,
+              padding: const EdgeInsets.only(left: Dimensions.paddingSizeSmall),
+              itemCount: itemList.length > 10 ? 10 : itemList.length,
               itemBuilder: (context, index){
 
                 return Padding(
-                  padding: EdgeInsets.only(right: Dimensions.PADDING_SIZE_SMALL, bottom: 5),
+                  padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall, bottom: 5),
                   child: InkWell(
                     onTap: () {
-                      Get.find<ItemController>().navigateToItemPage(_itemList[index], context);
+                      Get.find<ItemController>().navigateToItemPage(itemList[index], context);
                     },
                     child: Container(
                       height: 220,
                       width: 180,
-                      padding: EdgeInsets.all(Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                      padding: const EdgeInsets.all(Dimensions.paddingSizeExtraSmall),
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
+                        borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
                         boxShadow: [BoxShadow(
-                          color: Colors.grey[Get.find<ThemeController>().darkTheme ? 800 : 300],
+                          color: Colors.grey[Get.find<ThemeController>().darkTheme ? 800 : 300]!,
                           blurRadius: 5, spreadRadius: 1,
                         )],
                       ),
@@ -62,66 +66,83 @@ class BestReviewedItemView extends StatelessWidget {
 
                         Stack(children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(Dimensions.RADIUS_SMALL)),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(Dimensions.radiusSmall)),
                             child: CustomImage(
-                              image: '${Get.find<SplashController>().configModel.baseUrls.itemImageUrl}/${_itemList[index].image}',
+                              image: '${Get.find<SplashController>().configModel!.baseUrls!.itemImageUrl}/${itemList[index].image}',
                               height: 125, width: 170, fit: BoxFit.cover,
                             ),
                           ),
                           DiscountTag(
-                            discount: _itemList[index].discount, discountType: _itemList[index].discountType,
-                            inLeft: false,
+                            discount: itemList[index].discount, discountType: itemList[index].discountType,
+                            inLeft: true,
                           ),
-                          itemController.isAvailable(_itemList[index]) ? SizedBox() : NotAvailableWidget(isStore: true),
+                          itemController.isAvailable(itemList[index]) ? const SizedBox() : const NotAvailableWidget(isStore: true),
                           Positioned(
-                            top: Dimensions.PADDING_SIZE_EXTRA_SMALL, left: Dimensions.PADDING_SIZE_EXTRA_SMALL,
+                            top: Dimensions.paddingSizeExtraSmall, right: Dimensions.paddingSizeExtraSmall,
                             child: Container(
-                              padding: EdgeInsets.symmetric(vertical: 2, horizontal: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: Dimensions.paddingSizeExtraSmall),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).cardColor.withOpacity(0.8),
-                                borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
+                                borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
                               ),
                               child: Row(children: [
                                 Icon(Icons.star, color: Theme.of(context).primaryColor, size: 15),
-                                SizedBox(width: Dimensions.PADDING_SIZE_EXTRA_SMALL),
-                                Text(_itemList[index].avgRating.toStringAsFixed(1), style: robotoRegular),
+                                const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+                                Text(itemList[index].avgRating!.toStringAsFixed(1), style: robotoRegular),
                               ]),
                             ),
                           ),
+
+                          OrganicTag(item: itemList[index], placeTop: itemList[index].discount! == 0),
                         ]),
 
                         Expanded(
                           child: Stack(children: [
                             Padding(
-                              padding: EdgeInsets.symmetric(horizontal: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                              padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeExtraSmall),
                               child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                                Text(
-                                  _itemList[index].name ?? '', textAlign: TextAlign.center,
-                                  style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall),
-                                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                                Center(
+                                  child: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+                                    Text(
+                                      itemList[index].name ?? '', textAlign: TextAlign.center,
+                                      style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+
+                                    (Get.find<SplashController>().configModel!.moduleConfig!.module!.vegNonVeg! && Get.find<SplashController>().configModel!.toggleVegNonVeg!)
+                                        ? Image.asset(itemList[index].veg == 0 ? Images.nonVegImage : Images.vegImage,
+                                        height: 10, width: 10, fit: BoxFit.contain) : const SizedBox(),
+                                  ]),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
 
                                 Text(
-                                  _itemList[index].storeName ?? '', textAlign: TextAlign.center,
+                                  itemList[index].storeName ?? '', textAlign: TextAlign.center,
                                   style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeExtraSmall, color: Theme.of(context).disabledColor),
                                   maxLines: 1, overflow: TextOverflow.ellipsis,
                                 ),
-                                SizedBox(height: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                                const SizedBox(height: 2),
+
+                                (Get.find<SplashController>().configModel!.moduleConfig!.module!.unit! && itemList[index].unitType != null) ? Text(
+                                  '(${itemList[index].unitType ?? ''})', textAlign: TextAlign.center,
+                                  style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeExtraSmall, color: Theme.of(context).hintColor),
+                                ) : const SizedBox(),
+                                const SizedBox(height: 2),
 
                                 Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                  itemController.getDiscount(_itemList[index]) > 0  ? Flexible(child: Text(
-                                    PriceConverter.convertPrice(itemController.getStartingPrice(_itemList[index])),
+                                  itemController.getDiscount(itemList[index])! > 0  ? Flexible(child: Text(
+                                    PriceConverter.convertPrice(itemController.getStartingPrice(itemList[index])),
                                     style: robotoRegular.copyWith(
                                       fontSize: Dimensions.fontSizeExtraSmall, color: Theme.of(context).colorScheme.error,
                                       decoration: TextDecoration.lineThrough,
                                     ),
-                                  )) : SizedBox(),
-                                  SizedBox(width: _itemList[index].discount > 0 ? Dimensions.PADDING_SIZE_EXTRA_SMALL : 0),
+                                  )) : const SizedBox(),
+                                  SizedBox(width: itemList[index].discount! > 0 ? Dimensions.paddingSizeExtraSmall : 0),
                                   Text(
                                     PriceConverter.convertPrice(
-                                      itemController.getStartingPrice(_itemList[index]), discount: itemController.getDiscount(_itemList[index]),
-                                      discountType: itemController.getDiscountType(_itemList[index]),
+                                      itemController.getStartingPrice(itemList[index]), discount: itemController.getDiscount(itemList[index]),
+                                      discountType: itemController.getDiscountType(itemList[index]),
                                     ),
                                     style: robotoMedium, textDirection: TextDirection.ltr,
                                   ),
@@ -134,7 +155,7 @@ class BestReviewedItemView extends StatelessWidget {
                                   shape: BoxShape.circle,
                                   color: Theme.of(context).primaryColor
                               ),
-                              child: Icon(Icons.add, size: 20, color: Colors.white),
+                              child: const Icon(Icons.add, size: 20, color: Colors.white),
                             )),
                           ]),
                         ),
@@ -154,32 +175,32 @@ class BestReviewedItemView extends StatelessWidget {
 
 class BestReviewedItemShimmer extends StatelessWidget {
   final ItemController itemController;
-  BestReviewedItemShimmer({@required this.itemController});
+  const BestReviewedItemShimmer({Key? key, required this.itemController}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       shrinkWrap: true,
-      physics: BouncingScrollPhysics(),
+      physics: const BouncingScrollPhysics(),
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.only(left: Dimensions.PADDING_SIZE_SMALL),
+      padding: const EdgeInsets.only(left: Dimensions.paddingSizeSmall),
       itemCount: 10,
       itemBuilder: (context, index){
         return Padding(
-          padding: EdgeInsets.only(right: Dimensions.PADDING_SIZE_SMALL, bottom: 5),
+          padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall, bottom: 5),
           child: Container(
             height: 220, width: 180,
-            padding: EdgeInsets.all(Dimensions.PADDING_SIZE_EXTRA_SMALL),
+            padding: const EdgeInsets.all(Dimensions.paddingSizeExtraSmall),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
+              borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
               boxShadow: [BoxShadow(
-                color: Colors.grey[Get.find<ThemeController>().darkTheme ? 700 : 300],
+                color: Colors.grey[Get.find<ThemeController>().darkTheme ? 700 : 300]!,
                 blurRadius: 5, spreadRadius: 1,
               )],
             ),
             child: Shimmer(
-              duration: Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
               enabled: itemController.reviewedItemList == null,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
 
@@ -187,21 +208,21 @@ class BestReviewedItemShimmer extends StatelessWidget {
                   Container(
                     height: 125, width: 170,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(Dimensions.RADIUS_SMALL)),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(Dimensions.radiusSmall)),
                       color: Colors.grey[300],
                     ),
                   ),
                   Positioned(
-                    top: Dimensions.PADDING_SIZE_EXTRA_SMALL, left: Dimensions.PADDING_SIZE_EXTRA_SMALL,
+                    top: Dimensions.paddingSizeExtraSmall, right: Dimensions.paddingSizeExtraSmall,
                     child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 2, horizontal: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: Dimensions.paddingSizeExtraSmall),
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
+                        borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
                       ),
                       child: Row(children: [
                         Icon(Icons.star, color: Theme.of(context).primaryColor, size: 15),
-                        SizedBox(width: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                        const SizedBox(width: Dimensions.paddingSizeExtraSmall),
                         Text('0.0', style: robotoRegular),
                       ]),
                     ),
@@ -211,17 +232,17 @@ class BestReviewedItemShimmer extends StatelessWidget {
                 Expanded(
                   child: Stack(children: [
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                      padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeExtraSmall),
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         Container(height: 15, width: 100, color: Colors.grey[300]),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
 
                         Container(height: 10, width: 70, color: Colors.grey[300]),
-                        SizedBox(height: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                        const SizedBox(height: Dimensions.paddingSizeExtraSmall),
 
                         Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
                           Container(height: 10, width: 40, color: Colors.grey[300]),
-                          SizedBox(width: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                          const SizedBox(width: Dimensions.paddingSizeExtraSmall),
                         Container(height: 15, width: 40, color: Colors.grey[300]),
                         ]),
                       ]),
@@ -232,7 +253,7 @@ class BestReviewedItemShimmer extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: Theme.of(context).primaryColor
                       ),
-                      child: Icon(Icons.add, size: 20, color: Colors.white),
+                      child: const Icon(Icons.add, size: 20, color: Colors.white),
                     )),
                   ]),
                 ),

@@ -1,4 +1,6 @@
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:sixam_mart/controller/cart_controller.dart';
+import 'package:sixam_mart/controller/localization_controller.dart';
 import 'package:sixam_mart/controller/splash_controller.dart';
 import 'package:sixam_mart/data/model/response/cart_model.dart';
 import 'package:sixam_mart/data/model/response/item_model.dart';
@@ -18,57 +20,57 @@ class CartItemWidget extends StatelessWidget {
   final int cartIndex;
   final List<AddOns> addOns;
   final bool isAvailable;
-  CartItemWidget({@required this.cart, @required this.cartIndex, @required this.isAvailable, @required this.addOns});
+  const CartItemWidget({Key? key, required this.cart, required this.cartIndex, required this.isAvailable, required this.addOns}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    String _addOnText = '';
-    int _index = 0;
-    List<int> _ids = [];
-    List<int> _qtys = [];
-    cart.addOnIds.forEach((addOn) {
-      _ids.add(addOn.id);
-      _qtys.add(addOn.quantity);
-    });
-    cart.item.addOns.forEach((addOn) {
-      if (_ids.contains(addOn.id)) {
-        _addOnText = _addOnText + '${(_index == 0) ? '' : ',  '}${addOn.name} (${_qtys[_index]})';
-        _index = _index + 1;
+    String addOnText = '';
+    int index0 = 0;
+    List<int?> ids = [];
+    List<int?> qtys = [];
+    for (var addOn in cart.addOnIds!) {
+      ids.add(addOn.id);
+      qtys.add(addOn.quantity);
+    }
+    for (var addOn in cart.item!.addOns!) {
+      if (ids.contains(addOn.id)) {
+        addOnText = '$addOnText${(index0 == 0) ? '' : ',  '}${addOn.name} (${qtys[index0]})';
+        index0 = index0 + 1;
       }
-    });
+    }
 
-    String _variationText = '';
-    if(Get.find<SplashController>().getModuleConfig(cart.item.moduleType).newVariation) {
-      if(cart.foodVariations.length > 0) {
-        for(int index=0; index<cart.foodVariations.length; index++) {
-          if(cart.foodVariations[index].contains(true)) {
-            _variationText += '${_variationText.isNotEmpty ? ', ' : ''}${cart.item.foodVariations[index].name} (';
-            for(int i=0; i<cart.foodVariations[index].length; i++) {
-              if(cart.foodVariations[index][i]) {
-                _variationText += '${_variationText.endsWith('(') ? '' : ', '}${cart.item.foodVariations[index].variationValues[i].level}';
+    String? variationText = '';
+    if(Get.find<SplashController>().getModuleConfig(cart.item!.moduleType).newVariation!) {
+      if(cart.foodVariations!.isNotEmpty) {
+        for(int index=0; index<cart.foodVariations!.length; index++) {
+          if(cart.foodVariations![index].contains(true)) {
+            variationText = '${variationText!}${variationText.isNotEmpty ? ', ' : ''}${cart.item!.foodVariations![index].name} (';
+            for(int i=0; i<cart.foodVariations![index].length; i++) {
+              if(cart.foodVariations![index][i]!) {
+                variationText = '${variationText!}${variationText.endsWith('(') ? '' : ', '}${cart.item!.foodVariations![index].variationValues![i].level}';
               }
             }
-            _variationText += ')';
+            variationText = '${variationText!})';
           }
         }
       }
     }else {
-      if(cart.variation.length > 0) {
-        List<String> _variationTypes = cart.variation[0].type.split('-');
-        if(_variationTypes.length == cart.item.choiceOptions.length) {
-          int _index = 0;
-          cart.item.choiceOptions.forEach((choice) {
-            _variationText = _variationText + '${(_index == 0) ? '' : ',  '}${choice.title} - ${_variationTypes[_index]}';
-            _index = _index + 1;
-          });
+      if(cart.variation!.isNotEmpty) {
+        List<String> variationTypes = cart.variation![0].type!.split('-');
+        if(variationTypes.length == cart.item!.choiceOptions!.length) {
+          int index0 = 0;
+          for (var choice in cart.item!.choiceOptions!) {
+            variationText = '${variationText!}${(index0 == 0) ? '' : ',  '}${choice.title} - ${variationTypes[index0]}';
+            index0 = index0 + 1;
+          }
         }else {
-          _variationText = cart.item.variations[0].type;
+          variationText = cart.item!.variations![0].type;
         }
       }
     }
 
     return Padding(
-      padding: EdgeInsets.only(bottom: Dimensions.PADDING_SIZE_DEFAULT),
+      padding: const EdgeInsets.only(bottom: Dimensions.paddingSizeDefault),
       child: InkWell(
         onTap: () {
           ResponsiveHelper.isMobile(context) ? showModalBottomSheet(
@@ -80,155 +82,168 @@ class CartItemWidget extends StatelessWidget {
             child: ItemBottomSheet(item: cart.item, cartIndex: cartIndex, cart: cart),
           ));
         },
-        child: Container(
-          decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL)),
-          child: Stack(children: [
-            Positioned(
-              top: 0, bottom: 0, right: 0, left: 0,
-              child: Icon(Icons.delete, color: Colors.white, size: 50),
+        child: Slidable(
+          key: UniqueKey(),
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.2,
+            children: [
+              SlidableAction(
+                onPressed: (context)=> Get.find<CartController>().removeFromCart(cartIndex),
+                backgroundColor: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.horizontal(right: Radius.circular(Get.find<LocalizationController>().isLtr ? Dimensions.radiusDefault : 0), left: Radius.circular(Get.find<LocalizationController>().isLtr ? 0 : Dimensions.radiusDefault)),
+                foregroundColor: Colors.white,
+                icon: Icons.delete_outline,
+              ),
+            ],
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeExtraSmall, horizontal: Dimensions.paddingSizeSmall),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
+              boxShadow: [BoxShadow(
+                color: Theme.of(context).primaryColor.withOpacity(0.2),
+                blurRadius: 5, spreadRadius: 1,
+              )],
             ),
-            Dismissible(
-              key: UniqueKey(),
-              onDismissed: (DismissDirection direction) => Get.find<CartController>().removeFromCart(cartIndex),
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: Dimensions.PADDING_SIZE_EXTRA_SMALL, horizontal: Dimensions.PADDING_SIZE_SMALL),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                  boxShadow: [BoxShadow(
-                    color: Colors.grey[Get.isDarkMode ? 800 : 200],
-                    blurRadius: 5, spreadRadius: 1,
-                  )],
-                ),
-                child: Column(
-                  children: [
+            child: Column(
+              children: [
 
-                    Row(children: [
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                            child: CustomImage(
-                              image: '${Get.find<SplashController>().configModel.baseUrls.itemImageUrl}/${cart.item.image}',
-                              height: 65, width: 70, fit: BoxFit.cover,
-                            ),
-                          ),
-                          isAvailable ? SizedBox() : Positioned(
-                            top: 0, left: 0, bottom: 0, right: 0,
-                            child: Container(
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL), color: Colors.black.withOpacity(0.6)),
-                              child: Text('not_available_now_break'.tr, textAlign: TextAlign.center, style: robotoRegular.copyWith(
-                                color: Colors.white, fontSize: 8,
-                              )),
-                            ),
-                          ),
-                        ],
+                Row(children: [
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                        child: CustomImage(
+                          image: '${Get.find<SplashController>().configModel!.baseUrls!.itemImageUrl}/${cart.item!.image}',
+                          height: 65, width: 70, fit: BoxFit.cover,
+                        ),
                       ),
-                      SizedBox(width: Dimensions.PADDING_SIZE_SMALL),
+                      isAvailable ? const SizedBox() : Positioned(
+                        top: 0, left: 0, bottom: 0, right: 0,
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(Dimensions.radiusSmall), color: Colors.black.withOpacity(0.6)),
+                          child: Text('not_available_now_break'.tr, textAlign: TextAlign.center, style: robotoRegular.copyWith(
+                            color: Colors.white, fontSize: 8,
+                          )),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: Dimensions.paddingSizeSmall),
 
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text(
-                            cart.item.name,
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Row(children: [
+                        Flexible(
+                          child: Text(
+                            cart.item!.name!,
                             style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall),
                             maxLines: 2, overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: 2),
-                          RatingBar(rating: cart.item.avgRating, size: 12, ratingCount: cart.item.ratingCount),
-                          SizedBox(height: 5),
-                          Row(
-                            children: [
-                              Text(
-                                PriceConverter.convertPrice(cart.discountedPrice),
-                                style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall), textDirection: TextDirection.ltr,
-                              ),
+                        ),
+                        const SizedBox(width: Dimensions.paddingSizeExtraSmall),
 
-                              SizedBox(width: Dimensions.PADDING_SIZE_EXTRA_SMALL),
-                              cart.discountedPrice+cart.discountAmount > cart.discountedPrice ? Text(
-                                PriceConverter.convertPrice(cart.discountedPrice+cart.discountAmount), textDirection: TextDirection.ltr,
-                                style: robotoMedium.copyWith(color: Theme.of(context).disabledColor, fontSize: Dimensions.fontSizeSmall, decoration: TextDecoration.lineThrough),
-                              ) : SizedBox(),
-                            ],
-                          ),
-                        ]),
-                      ),
-
-                      Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        ((Get.find<SplashController>().configModel.moduleConfig.module.unit && cart.item.unitType != null)
-                        || (Get.find<SplashController>().configModel.moduleConfig.module.vegNonVeg && Get.find<SplashController>().configModel.toggleVegNonVeg)) ? Container(
-                          padding: EdgeInsets.symmetric(vertical: Dimensions.PADDING_SIZE_EXTRA_SMALL, horizontal: Dimensions.PADDING_SIZE_SMALL),
+                        ((Get.find<SplashController>().configModel!.moduleConfig!.module!.unit! && cart.item!.unitType != null && !Get.find<SplashController>().getModuleConfig(cart.item!.moduleType).newVariation!)
+                        || (Get.find<SplashController>().configModel!.moduleConfig!.module!.vegNonVeg! && Get.find<SplashController>().configModel!.toggleVegNonVeg!)) ? Container(
+                          padding: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeExtraSmall, horizontal: Dimensions.paddingSizeSmall),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
-                            color: Theme.of(context).primaryColor,
+                            borderRadius: BorderRadius.circular(Dimensions.radiusSmall),
+                            color: Theme.of(context).primaryColor.withOpacity(0.2),
                           ),
                           child: Text(
-                            Get.find<SplashController>().configModel.moduleConfig.module.unit ? cart.item.unitType ?? ''
-                                : cart.item.veg == 0 ? 'non_veg'.tr : 'veg'.tr,
-                            style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeExtraSmall, color: Colors.white),
+                            Get.find<SplashController>().configModel!.moduleConfig!.module!.unit! ? cart.item!.unitType ?? ''
+                                : cart.item!.veg == 0 ? 'non_veg'.tr : 'veg'.tr,
+                            style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeExtraSmall, color: Theme.of(context).primaryColor),
                           ),
-                        ) : SizedBox(),
-                        SizedBox(height: Get.find<SplashController>().configModel.toggleVegNonVeg ? Dimensions.PADDING_SIZE_EXTRA_SMALL : 0),
-                        Row(children: [
-                          QuantityButton(
-                            onTap: () {
-                              if (cart.quantity > 1) {
-                                Get.find<CartController>().setQuantity(false, cartIndex, cart.stock);
-                              }else {
-                                Get.find<CartController>().removeFromCart(cartIndex);
-                              }
-                            },
-                            isIncrement: false,
-                          ),
-                          Text(cart.quantity.toString(), style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeExtraLarge)),
-                          QuantityButton(
-                            onTap: () => Get.find<CartController>().setQuantity(true, cartIndex, cart.stock),
-                            isIncrement: true,
-                          ),
-                        ]),
+                        ) : const SizedBox(),
                       ]),
+                      const SizedBox(height: 2),
 
-                      !ResponsiveHelper.isMobile(context) ? Padding(
-                        padding: EdgeInsets.symmetric(horizontal: Dimensions.PADDING_SIZE_SMALL),
-                        child: IconButton(
-                          onPressed: () {
-                            Get.find<CartController>().removeFromCart(cartIndex);
-                          },
-                          icon: Icon(Icons.delete, color: Colors.red),
-                        ),
-                      ) : SizedBox(),
+                      RatingBar(rating: cart.item!.avgRating, size: 12, ratingCount: cart.item!.ratingCount),
+                      const SizedBox(height: 5),
 
+                      Row(
+                        children: [
+                          Text(
+                            PriceConverter.convertPrice(cart.discountedPrice),
+                            style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall), textDirection: TextDirection.ltr,
+                          ),
+
+                          const SizedBox(width: Dimensions.paddingSizeExtraSmall),
+                          cart.discountedPrice!+cart.discountAmount! > cart.discountedPrice! ? Text(
+                            PriceConverter.convertPrice(cart.discountedPrice!+cart.discountAmount!), textDirection: TextDirection.ltr,
+                            style: robotoMedium.copyWith(color: Theme.of(context).disabledColor, fontSize: Dimensions.fontSizeSmall, decoration: TextDecoration.lineThrough),
+                          ) : const SizedBox(),
+                        ],
+                      ),
                     ]),
+                  ),
 
-                    (Get.find<SplashController>().configModel.moduleConfig.module.addOn && _addOnText.isNotEmpty) ? Padding(
-                      padding: EdgeInsets.only(top: Dimensions.PADDING_SIZE_EXTRA_SMALL),
-                      child: Row(children: [
-                        SizedBox(width: 80),
-                        Text('${'addons'.tr}: ', style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall)),
-                        Flexible(child: Text(
-                          _addOnText,
-                          style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
-                        )),
-                      ]),
-                    ) : SizedBox(),
+                  Row(children: [
+                    QuantityButton(
+                      onTap: () {
+                        if (cart.quantity! > 1) {
+                          Get.find<CartController>().setQuantity(false, cartIndex, cart.stock);
+                        }else {
+                          Get.find<CartController>().removeFromCart(cartIndex);
+                        }
+                      },
+                      isIncrement: false,
+                      showRemoveIcon: cart.quantity! == 1,
+                    ),
+                    Text(cart.quantity.toString(), style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeExtraLarge)),
 
-                    _variationText.isNotEmpty ? Padding(
-                      padding: EdgeInsets.only(top: Dimensions.PADDING_SIZE_EXTRA_SMALL),
-                      child: Row(children: [
-                        SizedBox(width: 80),
-                        Text('${'variations'.tr}: ', style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall)),
-                        Flexible(child: Text(
-                          _variationText,
-                          style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
-                        )),
-                      ]),
-                    ) : SizedBox(),
+                    QuantityButton(
+                      onTap: () {
+                        Get.find<CartController>().forcefullySetModule(Get.find<CartController>().cartList[0].item!.moduleId!);
+                        Get.find<CartController>().setQuantity(true, cartIndex, cart.stock);
+                      },
+                      isIncrement: true,
+                    ),
+                  ]),
 
-                  ],
-                ),
-              ),
+                  !ResponsiveHelper.isMobile(context) ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeSmall),
+                    child: IconButton(
+                      onPressed: () {
+                        Get.find<CartController>().removeFromCart(cartIndex);
+                      },
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                    ),
+                  ) : const SizedBox(),
+
+                ]),
+
+                (Get.find<SplashController>().configModel!.moduleConfig!.module!.addOn! && addOnText.isNotEmpty) ? Padding(
+                  padding: const EdgeInsets.only(top: Dimensions.paddingSizeExtraSmall),
+                  child: Row(children: [
+                    const SizedBox(width: 80),
+                    Text('${'addons'.tr}: ', style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall)),
+                    Flexible(child: Text(
+                      addOnText,
+                      style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
+                    )),
+                  ]),
+                ) : const SizedBox(),
+
+                variationText!.isNotEmpty ? Padding(
+                  padding: const EdgeInsets.only(top: Dimensions.paddingSizeExtraSmall),
+                  child: Row(children: [
+                    const SizedBox(width: 80),
+                    Text('${'variations'.tr}: ', style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeSmall)),
+                    Flexible(child: Text(
+                      variationText,
+                      style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
+                    )),
+                  ]),
+                ) : const SizedBox(),
+
+              ],
             ),
-          ]),
+          ),
         ),
       ),
     );

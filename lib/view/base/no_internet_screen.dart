@@ -2,13 +2,12 @@ import 'package:connectivity/connectivity.dart';
 import 'package:sixam_mart/util/dimensions.dart';
 import 'package:sixam_mart/util/images.dart';
 import 'package:sixam_mart/util/styles.dart';
-import 'package:sixam_mart/view/base/custom_button.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class NoInternetScreen extends StatelessWidget {
-  final Widget child;
-  NoInternetScreen({this.child});
+  final Widget? child;
+  const NoInternetScreen({Key? key, this.child}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -18,28 +17,35 @@ class NoInternetScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(Images.no_internet, width: 150, height: 150),
+            Image.asset(Images.noInternet, width: 300, height: 300),
             Text('oops'.tr, style: robotoBold.copyWith(
               fontSize: 30,
-              color: Theme.of(context).textTheme.bodyLarge.color,
+              color: Theme.of(context).textTheme.bodyLarge!.color,
             )),
-            SizedBox(height: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+            const SizedBox(height: Dimensions.paddingSizeExtraSmall),
             Text(
               'no_internet_connection'.tr,
               textAlign: TextAlign.center,
-              style: robotoRegular,
+              style: robotoRegular.copyWith(color: Theme.of(context).disabledColor),
             ),
-            SizedBox(height: 40),
-            Container(
-              height: 45,
-              margin: EdgeInsets.symmetric(horizontal: 40),
-              child: CustomButton(
-                onPressed: () async {
-                  if(await Connectivity().checkConnectivity() != ConnectivityResult.none) {
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => child));
-                  }
-                },
-                buttonText: 'retry'.tr,
+            const SizedBox(height: 40),
+
+            GestureDetector(
+              onTap: () async {
+                if(await Connectivity().checkConnectivity() != ConnectivityResult.none) {
+                // Get.off((_) => child);
+                Get.off(child);
+                }
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Theme.of(context).primaryColor,
+                ),
+                padding: const EdgeInsets.all(10),
+                child: InkWell(
+                  child: Center(child: Icon(Icons.refresh, size: 34, color: Theme.of(context).cardColor)),
+                ),
               ),
             ),
 

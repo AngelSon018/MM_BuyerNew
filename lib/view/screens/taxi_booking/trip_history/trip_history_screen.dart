@@ -12,19 +12,24 @@ import 'package:get/get.dart';
 import 'package:sixam_mart/view/screens/taxi_booking/trip_history/widget/trip_history_list.dart';
 
 class TripHistoryScreen extends StatefulWidget {
+  const TripHistoryScreen({Key? key}) : super(key: key);
+
   @override
-  _TripHistoryScreenState createState() => _TripHistoryScreenState();
+  TripHistoryScreenState createState() => TripHistoryScreenState();
 }
 
-class _TripHistoryScreenState extends State<TripHistoryScreen> with TickerProviderStateMixin {
-  TabController _tabController;
-  bool _isLoggedIn;
+class TripHistoryScreenState extends State<TripHistoryScreen> with TickerProviderStateMixin {
+  TabController? _tabController;
+  bool _isLoggedIn = Get.find<AuthController>().isLoggedIn();
 
   @override
   void initState() {
     super.initState();
 
-    _isLoggedIn = Get.find<AuthController>().isLoggedIn();
+    initCall();
+  }
+
+  initCall(){
     if(_isLoggedIn) {
       _tabController = TabController(length: 3, initialIndex: 0, vsync: this);
       Get.find<RiderController>().getRunningTripList(1);
@@ -33,25 +38,26 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> with TickerProvid
 
   @override
   Widget build(BuildContext context) {
+    _isLoggedIn = Get.find<AuthController>().isLoggedIn();
     return Scaffold(
       appBar: CustomAppBar(title: 'trip_history'.tr),
-      endDrawer: MenuDrawer(), endDrawerEnableOpenDragGesture: false,
+      endDrawer: const MenuDrawer(), endDrawerEnableOpenDragGesture: false,
       body: _isLoggedIn ? GetBuilder<OrderController>(
         builder: (orderController) {
           return Column(children: [
 
             Center(
-              child: Container(
-                width: Dimensions.WEB_MAX_WIDTH,
+              child: SizedBox(
+                width: Dimensions.webMaxWidth,
                 child: TabBar(
-                  padding: EdgeInsets.symmetric(horizontal: 30),
+                  padding: const EdgeInsets.symmetric(horizontal: 30),
                   controller: _tabController,
                   indicatorColor: Theme.of(context).primaryColor,
                   indicatorWeight: 3,
-                  indicatorPadding: EdgeInsets.only(bottom: 10),
+                  indicatorPadding: const EdgeInsets.only(bottom: 10),
                   indicatorSize: TabBarIndicatorSize.label ,
                   labelColor: Theme.of(context).primaryColor,
-                  unselectedLabelColor: Theme.of(context).textTheme.bodyLarge.color,
+                  unselectedLabelColor: Theme.of(context).textTheme.bodyLarge!.color,
                   unselectedLabelStyle: robotoRegular.copyWith(color: Theme.of(context).disabledColor, fontSize: Dimensions.fontSizeDefault),
                   labelStyle: robotoBold.copyWith(
                       color: Theme.of(context).primaryColor,
@@ -65,10 +71,10 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> with TickerProvid
                 ),
               ),
             ),
-            SizedBox(height: Dimensions.PADDING_SIZE_DEFAULT,),
+            const SizedBox(height: Dimensions.paddingSizeDefault,),
             Expanded(child: TabBarView(
               controller: _tabController,
-              children: [
+              children: const [
                 TripHistoryList(type: 'onGoing'),
                 OrderView(isRunning: false),
                 OrderView(isRunning: false),
@@ -77,7 +83,10 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> with TickerProvid
 
           ]);
         },
-      ) : NotLoggedInScreen(),
+      ) : NotLoggedInScreen(callBack: (value){
+        initCall();
+        setState(() {});
+      }),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:expandable_bottom_sheet/expandable_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -12,122 +13,154 @@ import 'package:sixam_mart/util/dimensions.dart';
 import 'package:sixam_mart/util/images.dart';
 import 'package:sixam_mart/util/styles.dart';
 import 'package:sixam_mart/view/base/custom_app_bar.dart';
-import 'package:sixam_mart/view/base/custom_button.dart';
 import 'package:sixam_mart/view/base/custom_snackbar.dart';
 import 'package:sixam_mart/view/base/footer_view.dart';
 import 'package:sixam_mart/view/base/menu_drawer.dart';
 import 'package:sixam_mart/view/base/not_logged_in_screen.dart';
+import 'package:sixam_mart/view/screens/refer_and_earn/widget/bottom_sheet_view.dart';
+import 'package:flutter_share_me/flutter_share_me.dart';
 
+enum ShareType {
+  facebook,
+  messenger,
+  twitter,
+  whatsapp,
+}
 class ReferAndEarnScreen extends StatefulWidget {
-  const ReferAndEarnScreen({Key key}) : super(key: key);
+  const ReferAndEarnScreen({Key? key}) : super(key: key);
 
   @override
   State<ReferAndEarnScreen> createState() => _ReferAndEarnScreenState();
 }
 
 class _ReferAndEarnScreenState extends State<ReferAndEarnScreen> {
-  bool _isLoggedIn;
 
   @override
   void initState() {
     super.initState();
 
-    _isLoggedIn = Get.find<AuthController>().isLoggedIn();
+    initCall();
+  }
 
-    if(_isLoggedIn && Get.find<UserController>().userInfoModel == null) {
+  void initCall(){
+
+    if(Get.find<AuthController>().isLoggedIn() && Get.find<UserController>().userInfoModel == null) {
       Get.find<UserController>().getUserInfo();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isLoggedIn = Get.find<AuthController>().isLoggedIn();
     return Scaffold(
-      endDrawer: MenuDrawer(),endDrawerEnableOpenDragGesture: false,
+      endDrawer: const MenuDrawer(),endDrawerEnableOpenDragGesture: false,
       appBar: CustomAppBar(title: 'refer_and_earn'.tr),
-      body: Center(
-        child: _isLoggedIn ? SingleChildScrollView(
+      body: ExpandableBottomSheet(
+        background: isLoggedIn ? SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: ResponsiveHelper.isDesktop(context) ? 0 : Dimensions.paddingSizeLarge),
           child: FooterView(
-            child: SizedBox(
-              width: Dimensions.WEB_MAX_WIDTH,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Dimensions.PADDING_SIZE_LARGE),
+            child: Center(
+              child: SizedBox(
+                width: Dimensions.webMaxWidth,
                 child: GetBuilder<UserController>(builder: (userController) {
-                    return Column( children: [
-                      SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
+                    return Column(mainAxisAlignment: MainAxisAlignment.start, children: [
+
+                      Image.asset(
+                        Images.referImage, width: 500,
+                        height: ResponsiveHelper.isDesktop(context) ? 250 : 150, fit: BoxFit.contain,
+                      ),
+                      const SizedBox(height: Dimensions.paddingSizeExtraLarge),
 
                       Text('earn_money_on_every_referral'.tr, style: robotoRegular.copyWith(color: Theme.of(context).primaryColor, fontSize: Dimensions.fontSizeSmall)),
-                      SizedBox(height: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+                      const SizedBox(height: Dimensions.paddingSizeExtraSmall),
 
                       Text(
-                          'one_referral'.tr + '= ' + PriceConverter.convertPrice(Get.find<SplashController>().configModel != null
-                              ? Get.find<SplashController>().configModel.refEarningExchangeRate.toDouble() : 0.0),
+                          '${'one_referral'.tr}= ${PriceConverter.convertPrice(Get.find<SplashController>().configModel != null
+                              ? Get.find<SplashController>().configModel!.refEarningExchangeRate!.toDouble() : 0.0)}',
                           style: robotoBold.copyWith(fontSize: Dimensions.fontSizeDefault), textDirection: TextDirection.ltr,
                       ),
-                      SizedBox(height: 40),
+                      const SizedBox(height: 40),
 
-                      Center(
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Column(children: [
+                      Text('invite_friends_and_business'.tr , style: robotoBold.copyWith(fontSize: Dimensions.fontSizeOverLarge), textAlign: TextAlign.center),
+                      const SizedBox(height: Dimensions.paddingSizeSmall),
 
-                            Image.asset(Images.refer_image, width: ResponsiveHelper.isDesktop(context) ? 200 : 100,
-                                height: ResponsiveHelper.isDesktop(context) ? 250 : 150, fit: BoxFit.contain),
-                            SizedBox(width: 120,
-                                child: Text('refer_your_code_to_your_friend'.tr , style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall), textAlign: TextAlign.center),
-                            ),
-                          ]),
-                          SizedBox(width: ResponsiveHelper.isDesktop(context) ? 150 : 50),
+                      Text('copy_your_code_share_it_with_your_friends'.tr , style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall), textAlign: TextAlign.center),
+                      const SizedBox(height: Dimensions.paddingSizeExtraLarge),
 
-                          Column(children: [
-                            Image.asset(Images.earn_money, width: ResponsiveHelper.isDesktop(context) ? 200 : 100,
-                                height: ResponsiveHelper.isDesktop(context) ? 250 : 150, fit: BoxFit.contain),
-                            SizedBox(width: 120, child: Text(
-                                'get'.tr + ' ${PriceConverter.convertPrice(Get.find<SplashController>().configModel != null ? Get.find<SplashController>().configModel.refEarningExchangeRate.toDouble() : 0.0)} ' +
-                                    'on_joining'.tr , style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall), textAlign: TextAlign.center, textDirection: TextDirection.ltr),
-                            ),
-                          ]),
-                        ]),
-                      ),
-                      SizedBox(height: Dimensions.PADDING_SIZE_EXTRA_LARGE),
+                      Text('your_personal_code'.tr , style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).hintColor), textAlign: TextAlign.center),
+                      const SizedBox(height: Dimensions.paddingSizeSmall),
 
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-                        Text('your_referral_code'.tr, style: robotoRegular.copyWith(color: Theme.of(context).disabledColor, fontSize: Dimensions.fontSizeDefault)),
-                        SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
-
-                        DottedBorder(
-                          color: Theme.of(context).primaryColor,
-                          strokeWidth: 1,
-                          strokeCap: StrokeCap.butt,
-                          dashPattern: [8, 5],
-                          padding: EdgeInsets.all(0),
-                          borderType: BorderType.RRect,
-                          radius: Radius.circular(Dimensions.RADIUS_SMALL),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: Dimensions.PADDING_SIZE_LARGE),
-                            height: 50, decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL)),
-                            child: (userController.userInfoModel != null) ? Row(children: [
-                              Expanded(
+                      DottedBorder(
+                        color: Theme.of(context).primaryColor,
+                        strokeWidth: 1,
+                        strokeCap: StrokeCap.butt,
+                        dashPattern: const [8, 5],
+                        padding: const EdgeInsets.all(0),
+                        borderType: BorderType.RRect,
+                        radius: const Radius.circular(50),
+                        child: SizedBox(
+                          height: 50,
+                          child: (userController.userInfoModel != null) ? Row(children: [
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: Dimensions.paddingSizeLarge),
                                 child: Text(
-                                  '${userController.userInfoModel != null ? userController.userInfoModel.refCode ?? '' : ''}',
-                                  style: robotoBlack.copyWith(color: Theme.of(context).primaryColor, fontSize: Dimensions.fontSizeExtraLarge),
+                                  userController.userInfoModel != null ? userController.userInfoModel!.refCode ?? '' : '',
+                                  style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeExtraLarge),
                                 ),
                               ),
-                              InkWell(
-                                onTap: () {
-                                  if(userController.userInfoModel.refCode.isNotEmpty){
-                                    Clipboard.setData(ClipboardData(text: '${userController.userInfoModel != null ? userController.userInfoModel.refCode : ''}'));
-                                    showCustomSnackBar('referral_code_copied'.tr, isError: false);
-                                  }
-                                },
-                                child: Text('tap_to_copy'.tr, style: robotoMedium),
+                            ),
+                            InkWell(
+                              onTap: () {
+                                if(userController.userInfoModel!.refCode!.isNotEmpty){
+                                  Clipboard.setData(ClipboardData(text: '${userController.userInfoModel != null ? userController.userInfoModel!.refCode : ''}'));
+                                  showCustomSnackBar('referral_code_copied'.tr, isError: false);
+                                }
+                              },
+                              child: Container(
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(50)),
+                                padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeExtraLarge),
+                                margin: const EdgeInsets.all(Dimensions.paddingSizeExtraSmall),
+                                child: Text('copy'.tr, style: robotoMedium.copyWith(color: Theme.of(context).cardColor, fontSize: Dimensions.fontSizeDefault)),
                               ),
-                            ]) : CircularProgressIndicator(),
-                          ),
+                            ),
+                          ]) : const CircularProgressIndicator(),
                         ),
-                      ]),
-                      SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
+                      ),
+                      const SizedBox(height: Dimensions.paddingSizeLarge),
 
-                      CustomButton(buttonText: 'share'.tr,icon: Icons.share, onPressed: () => Share.share('${'this_is_my_refer_code'.tr}: ${userController.userInfoModel.refCode}')),
+                      Wrap(children: [
+                        // InkWell(
+                        //   onTap: () => onButtonTap(ShareType.messenger, userController.userInfoModel!.refCode!),
+                        //     child: Image.asset(Images.messengerIcon, height: 40, width: 40),
+                        // ),
+                        // const SizedBox(width: Dimensions.paddingSizeSmall),
+                        //
+                        // InkWell(
+                        //   onTap: () => onButtonTap(ShareType.whatsapp, userController.userInfoModel!.refCode!),
+                        //     child: Image.asset(Images.whatsappIcon, height: 40, width: 40),
+                        // ),
+                        // const SizedBox(width: Dimensions.paddingSizeSmall),
+
+                        InkWell(
+                          onTap: () => Share.share('${'this_is_my_refer_code'.tr}: ${userController.userInfoModel!.refCode}'),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Theme.of(context).cardColor,
+                              boxShadow: [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.2), blurRadius: 5)],
+                            ),
+                            padding: const EdgeInsets.all(7),
+                            child: const Icon(Icons.share),
+                          ),
+                        )
+                      ]),
+
+                      ResponsiveHelper.isDesktop(context) ? const Padding(
+                        padding: EdgeInsets.only(top: Dimensions.paddingSizeExtraLarge),
+                        child: BottomSheetView(),
+                      ) : const SizedBox(),
 
                     ]);
                   }
@@ -135,8 +168,39 @@ class _ReferAndEarnScreenState extends State<ReferAndEarnScreen> {
               ),
             ),
           ),
-        ) : NotLoggedInScreen(),
+        ) : NotLoggedInScreen(callBack: (value){
+          initCall();
+          setState(() {});
+        }),
+
+        persistentContentHeight: ResponsiveHelper.isDesktop(context) ? 0 : 60,
+        expandableContent: ResponsiveHelper.isDesktop(context) || !isLoggedIn ? const SizedBox() : const BottomSheetView(),
+
       ),
     );
+  }
+
+
+  Future<void> onButtonTap(ShareType share, String msg) async {
+    String url = 'https://pub.dev/packages/flutter_share_me';
+
+    String? response;
+    final FlutterShareMe flutterShareMe = FlutterShareMe();
+    switch (share) {
+      case ShareType.facebook:
+        response = await flutterShareMe.shareToFacebook(url: url, msg: msg);
+        break;
+      case ShareType.messenger:
+        response = await flutterShareMe.shareToMessenger(url: url, msg: msg);
+        break;
+      case ShareType.twitter:
+        response = await flutterShareMe.shareToTwitter(url: url, msg: msg);
+        break;
+      case ShareType.whatsapp:
+        response = await flutterShareMe.shareToWhatsApp(msg: msg);
+        break;
+
+    }
+    debugPrint(response);
   }
 }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-ThemeData light({Color color = const Color(0xFF1976BD)}) => ThemeData(
+ThemeData light({Color color = const Color(0xFF039D55)}) => ThemeData(
   fontFamily: 'Roboto',
   primaryColor: color,
-  secondaryHeaderColor: Color(0xFFE33530),
-  disabledColor: Color(0xFFBFBFBF),
+  secondaryHeaderColor: const Color(0xFF1ED7AA),
+  disabledColor: const Color(0xFFBABFC4),
   brightness: Brightness.light,
-  hintColor: Color(0xFFCB6C6C),
+  hintColor: const Color(0xFF9F9F9F),
   cardColor: Colors.white,
   textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: color)),
-  colorScheme: ColorScheme.light(primary: color, secondary: color).copyWith(background: Color(0xFF064C81)).copyWith(error: Color(0xFFBE2424)),
+  colorScheme: ColorScheme.light(primary: color, secondary: color).copyWith(background: const Color(0xFFF3F3F3)).copyWith(error: const Color(0xFFE84D4F)),
 );

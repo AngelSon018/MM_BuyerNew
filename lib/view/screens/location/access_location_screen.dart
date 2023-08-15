@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:sixam_mart/controller/auth_controller.dart';
 import 'package:sixam_mart/controller/location_controller.dart';
 import 'package:sixam_mart/data/model/response/address_model.dart';
@@ -22,92 +26,106 @@ import 'package:sixam_mart/view/screens/location/widget/web_landing_page.dart';
 class AccessLocationScreen extends StatefulWidget {
   final bool fromSignUp;
   final bool fromHome;
-  final String route;
-  AccessLocationScreen({@required this.fromSignUp, @required this.fromHome, @required this.route});
+  final String? route;
+  const AccessLocationScreen({Key? key, required this.fromSignUp, required this.fromHome, required this.route}) : super(key: key);
 
   @override
   State<AccessLocationScreen> createState() => _AccessLocationScreenState();
 }
 
 class _AccessLocationScreenState extends State<AccessLocationScreen> {
-  bool _isLoggedIn = Get.find<AuthController>().isLoggedIn();
-
-  @override
-  void initState() {
-    super.initState();
-
-    if(!widget.fromHome && Get.find<LocationController>().getUserAddress() != null) {
-      Future.delayed(Duration(milliseconds: 500), () {
-        Get.dialog(CustomLoader(), barrierDismissible: false);
-        Get.find<LocationController>().autoNavigate(
-          Get.find<LocationController>().getUserAddress(), widget.fromSignUp, widget.route, widget.route != null, ResponsiveHelper.isDesktop(context),
-        );
-      });
-    }
-    if(_isLoggedIn) {
-      Get.find<LocationController>().getAddressList();
-    }
-  }
+  bool _canExit = GetPlatform.isWeb ? true : false;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CustomAppBar(title: 'set_location'.tr, backButton: widget.fromHome),
-      endDrawer: MenuDrawer(),endDrawerEnableOpenDragGesture: false,
-      body: SafeArea(child: Padding(
-        padding: ResponsiveHelper.isDesktop(context) ? EdgeInsets.zero : EdgeInsets.all(Dimensions.PADDING_SIZE_SMALL),
-        child: GetBuilder<LocationController>(builder: (locationController) {
-          return (ResponsiveHelper.isDesktop(context) && locationController.getUserAddress() == null) ? WebLandingPage(
-            fromSignUp: widget.fromSignUp, fromHome: widget.fromHome, route: widget.route,
-          ) : _isLoggedIn ? Column(children: [
-            Expanded(child: SingleChildScrollView(
-              child: FooterView(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-
-                locationController.addressList != null ? locationController.addressList.length > 0 ? ListView.builder(
-                  physics: NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  itemCount: locationController.addressList.length,
-                  itemBuilder: (context, index) {
-                    return Center(child: SizedBox(width: 700, child: AddressWidget(
-                      address: locationController.addressList[index],
-                      fromAddress: false,
-                      onTap: () {
-                        Get.dialog(CustomLoader(), barrierDismissible: false);
-                        AddressModel _address = locationController.addressList[index];
-                        locationController.saveAddressAndNavigate(
-                          _address, widget.fromSignUp, widget.route, widget.route != null, ResponsiveHelper.isDesktop(context),
-                        );
-                      },
-                    )));
-                  },
-                ) : NoDataScreen(text: 'no_saved_address_found'.tr) : Center(child: CircularProgressIndicator()),
-                SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                ResponsiveHelper.isDesktop(context) ? BottomButton(locationController: locationController, fromSignUp: widget.fromSignUp, route: widget.route) : SizedBox(),
-
-              ])),
-            )),
-            ResponsiveHelper.isDesktop(context) ? SizedBox() : BottomButton(locationController: locationController, fromSignUp: widget.fromSignUp, route: widget.route),
-          ]) : Center(child: SingleChildScrollView(
-            physics: BouncingScrollPhysics(),
-            child: FooterView(child: SizedBox( width: 700,
-                child: Column(mainAxisAlignment: MainAxisAlignment.center,children: [
-                  Image.asset(Images.delivery_location, height: 220),
-                  SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                  Text('find_stores_and_items'.tr.toUpperCase(), textAlign: TextAlign.center, style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeExtraLarge)),
-                  Padding(padding: EdgeInsets.all(Dimensions.PADDING_SIZE_LARGE),
-                    child: Text('by_allowing_location_access'.tr, textAlign: TextAlign.center,
-                      style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
-                    ),
-                  ),
-                  SizedBox(height: Dimensions.PADDING_SIZE_LARGE),
-
-                  BottomButton(locationController: locationController, fromSignUp: widget.fromSignUp, route: widget.route),
-            ]))),
+    return WillPopScope(
+      onWillPop: () async {
+        if (_canExit) {
+          if (GetPlatform.isAndroid) {
+            SystemNavigator.pop();
+          } else if (GetPlatform.isIOS) {
+            exit(0);
+          } else {
+            Navigator.pushNamed(context, RouteHelper.getInitialRoute());
+          }
+          return Future.value(false);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('back_press_again_to_exit'.tr, style: const TextStyle(color: Colors.white)),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+            margin: const EdgeInsets.all(Dimensions.paddingSizeSmall),
           ));
-        }),
-      )),
+          _canExit = true;
+          Timer(const Duration(seconds: 2), () {
+            _canExit = false;
+          });
+          return Future.value(false);
+        }
+      },
+      child: Scaffold(
+        appBar: CustomAppBar(title: 'set_location'.tr, backButton: widget.fromHome),
+        endDrawer: const MenuDrawer(),endDrawerEnableOpenDragGesture: false,
+        body: SafeArea(child: Padding(
+          padding: ResponsiveHelper.isDesktop(context) ? EdgeInsets.zero : const EdgeInsets.all(Dimensions.paddingSizeSmall),
+          child: GetBuilder<LocationController>(builder: (locationController) {
+            bool isLoggedIn = Get.find<AuthController>().isLoggedIn();
+            return (ResponsiveHelper.isDesktop(context) && locationController.getUserAddress() == null) ? WebLandingPage(
+              fromSignUp: widget.fromSignUp, fromHome: widget.fromHome, route: widget.route,
+            ) : isLoggedIn ? Column(children: [
+              Expanded(child: SingleChildScrollView(
+                child: FooterView(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+
+                  locationController.addressList != null ? locationController.addressList!.isNotEmpty ? ListView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    itemCount: locationController.addressList!.length,
+                    itemBuilder: (context, index) {
+                      return Center(child: SizedBox(width: 700, child: AddressWidget(
+                        address: locationController.addressList![index],
+                        fromAddress: false,
+                        onTap: () {
+                          Get.dialog(const CustomLoader(), barrierDismissible: false);
+                          AddressModel address = locationController.addressList![index];
+                          locationController.saveAddressAndNavigate(
+                            address, widget.fromSignUp, widget.route, widget.route != null, ResponsiveHelper.isDesktop(context),
+                          );
+                        },
+                      )));
+                    },
+                  ) : NoDataScreen(text: 'no_saved_address_found'.tr) : const Center(child: CircularProgressIndicator()),
+                  const SizedBox(height: Dimensions.paddingSizeLarge),
+
+                  ResponsiveHelper.isDesktop(context) ? BottomButton(locationController: locationController, fromSignUp: widget.fromSignUp, route: widget.route) : const SizedBox(),
+
+                ])),
+              )),
+              ResponsiveHelper.isDesktop(context) ? const SizedBox() : BottomButton(locationController: locationController, fromSignUp: widget.fromSignUp, route: widget.route),
+            ]) : Center(child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: FooterView(child: SizedBox( width: 700,
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center,children: [
+                    Image.asset(Images.deliveryLocation, height: 220),
+                    const SizedBox(height: Dimensions.paddingSizeLarge),
+
+                    Text('find_stores_and_items'.tr.toUpperCase(), textAlign: TextAlign.center, style: robotoMedium.copyWith(fontSize: Dimensions.fontSizeExtraLarge)),
+                    Padding(padding: const EdgeInsets.all(Dimensions.paddingSizeLarge),
+                      child: Text('by_allowing_location_access'.tr, textAlign: TextAlign.center,
+                        style: robotoRegular.copyWith(fontSize: Dimensions.fontSizeSmall, color: Theme.of(context).disabledColor),
+                      ),
+                    ),
+                    const SizedBox(height: Dimensions.paddingSizeLarge),
+
+                    Padding(
+                      padding: ResponsiveHelper.isWeb() ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeLarge),
+                      child: BottomButton(locationController: locationController, fromSignUp: widget.fromSignUp, route: widget.route),
+                    ),
+              ]))),
+            ));
+          }),
+        )),
+      ),
     );
   }
 }
@@ -115,8 +133,8 @@ class _AccessLocationScreenState extends State<AccessLocationScreen> {
 class BottomButton extends StatelessWidget {
   final LocationController locationController;
   final bool fromSignUp;
-  final String route;
-  BottomButton({@required this.locationController, @required this.fromSignUp, @required this.route});
+  final String? route;
+  const BottomButton({Key? key, required this.locationController, required this.fromSignUp, required this.route}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -125,43 +143,40 @@ class BottomButton extends StatelessWidget {
       CustomButton(
         buttonText: 'user_current_location'.tr,
         onPressed: () async {
-          // String _color = '0xFFAA6843';
-          // String _color1 = '0xFFc7794c';
-          // Get.find<ThemeController>().changeTheme(Color(int.parse(_color)), Color(int.parse(_color1)));
           Get.find<LocationController>().checkPermission(() async {
-            Get.dialog(CustomLoader(), barrierDismissible: false);
-            AddressModel _address = await Get.find<LocationController>().getCurrentLocation(true);
-            ZoneResponseModel _response = await locationController.getZone(_address.latitude, _address.longitude, false);
-            if(_response.isSuccess) {
+            Get.dialog(const CustomLoader(), barrierDismissible: false);
+            AddressModel address = await Get.find<LocationController>().getCurrentLocation(true);
+            ZoneResponseModel response = await locationController.getZone(address.latitude, address.longitude, false);
+            if(response.isSuccess) {
               locationController.saveAddressAndNavigate(
-                _address, fromSignUp, route, route != null, ResponsiveHelper.isDesktop(context),
+                address, fromSignUp, route, route != null, ResponsiveHelper.isDesktop(Get.context),
               );
             }else {
               Get.back();
-              Get.toNamed(RouteHelper.getPickMapRoute(route == null ? RouteHelper.accessLocation : route, route != null));
+              Get.toNamed(RouteHelper.getPickMapRoute(route ?? RouteHelper.accessLocation, route != null));
               showCustomSnackBar('service_not_available_in_current_location'.tr);
             }
           });
         },
         icon: Icons.my_location,
       ),
-      SizedBox(height: Dimensions.PADDING_SIZE_SMALL),
+      const SizedBox(height: Dimensions.paddingSizeSmall),
 
       TextButton(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(
-            side: BorderSide(width: 2, color: Theme.of(context).primaryColor),
-            borderRadius: BorderRadius.circular(Dimensions.RADIUS_SMALL),
+            side: BorderSide(width: 1, color: Theme.of(context).primaryColor),
+            borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
           ),
-          minimumSize: Size(Dimensions.WEB_MAX_WIDTH, 50),
+          minimumSize: const Size(Dimensions.webMaxWidth, 50),
           padding: EdgeInsets.zero,
         ),
         onPressed: () => Get.toNamed(RouteHelper.getPickMapRoute(
-          route == null ? fromSignUp ? RouteHelper.signUp : RouteHelper.accessLocation : route, route != null,
+          route ?? (fromSignUp ? RouteHelper.signUp : RouteHelper.accessLocation), route != null,
         )),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Padding(
-            padding: EdgeInsets.only(right: Dimensions.PADDING_SIZE_EXTRA_SMALL),
+            padding: const EdgeInsets.only(right: Dimensions.paddingSizeExtraSmall),
             child: Icon(Icons.map, color: Theme.of(context).primaryColor),
           ),
           Text('set_from_map'.tr, textAlign: TextAlign.center, style: robotoBold.copyWith(

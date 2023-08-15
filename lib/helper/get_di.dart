@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:sixam_mart/controller/auth_controller.dart';
@@ -57,7 +58,7 @@ Future<Map<String, Map<String, String>>> init() async {
   // Core
   final sharedPreferences = await SharedPreferences.getInstance();
   Get.lazyPut(() => sharedPreferences);
-  Get.lazyPut(() => ApiClient(appBaseUrl: AppConstants.BASE_URL, sharedPreferences: Get.find()));
+  Get.lazyPut(() => ApiClient(appBaseUrl: AppConstants.baseUrl, sharedPreferences: Get.find()));
 
   // Repository
   Get.lazyPut(() => SplashRepo(sharedPreferences: Get.find(), apiClient: Get.find()));
@@ -68,7 +69,7 @@ Future<Map<String, Map<String, String>>> init() async {
   Get.lazyPut(() => UserRepo(apiClient: Get.find()));
   Get.lazyPut(() => BannerRepo(apiClient: Get.find()));
   Get.lazyPut(() => CategoryRepo(apiClient: Get.find()));
-  Get.lazyPut(() => StoreRepo(apiClient: Get.find()));
+  Get.lazyPut(() => StoreRepo(sharedPreferences: Get.find(), apiClient: Get.find()));
   Get.lazyPut(() => WishListRepo(apiClient: Get.find()));
   Get.lazyPut(() => ItemRepo(apiClient: Get.find()));
   Get.lazyPut(() => CartRepo(sharedPreferences: Get.find()));
@@ -97,7 +98,7 @@ Future<Map<String, Map<String, String>>> init() async {
   Get.lazyPut(() => CartController(cartRepo: Get.find()));
   Get.lazyPut(() => StoreController(storeRepo: Get.find()));
   Get.lazyPut(() => WishListController(wishListRepo: Get.find(), itemRepo: Get.find()));
-  Get.lazyPut(() => SearchController(searchRepo: Get.find()));
+  Get.lazyPut(() => SearchingController(searchRepo: Get.find()));
   Get.lazyPut(() => CouponController(couponRepo: Get.find()));
   Get.lazyPut(() => OrderController(orderRepo: Get.find()));
   Get.lazyPut(() => NotificationController(notificationRepo: Get.find()));
@@ -110,15 +111,15 @@ Future<Map<String, Map<String, String>>> init() async {
   Get.lazyPut(() => BookingCheckoutController(riderRepo: Get.find()));
 
   // Retrieving localized data
-  Map<String, Map<String, String>> _languages = Map();
+  Map<String, Map<String, String>> languages = {};
   for(LanguageModel languageModel in AppConstants.languages) {
     String jsonStringValues =  await rootBundle.loadString('assets/language/${languageModel.languageCode}.json');
-    Map<String, dynamic> _mappedJson = json.decode(jsonStringValues);
-    Map<String, String> _json = Map();
-    _mappedJson.forEach((key, value) {
-      _json[key] = value.toString();
+    Map<String, dynamic> mappedJson = jsonDecode(jsonStringValues);
+    Map<String, String> json = {};
+    mappedJson.forEach((key, value) {
+      json[key] = value.toString();
     });
-    _languages['${languageModel.languageCode}_${languageModel.countryCode}'] = _json;
+    languages['${languageModel.languageCode}_${languageModel.countryCode}'] = json;
   }
-  return _languages;
+  return languages;
 }
