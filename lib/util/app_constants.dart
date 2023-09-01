@@ -3,10 +3,10 @@ import 'package:sixam_mart/data/model/response/language_model.dart';
 import 'package:sixam_mart/util/images.dart';
 
 class AppConstants {
-  static const String appName = '6amMart';
+  static const String appName = 'MasterMovers Buyer';
   static const double appVersion = 2.2;
 
-  static const String baseUrl = "https://6ammart-admin.6amtech.com";
+  static const String baseUrl = "https://admin.mastermovers.ph";
   static const String categoryUri = '/api/v1/categories';
   static const String bannerUri = '/api/v1/banners';
   static const String storeItemUri = '/api/v1/items/latest';
